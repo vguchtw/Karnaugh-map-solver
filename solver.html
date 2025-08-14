@@ -5,7 +5,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Karnaugh Map Solver — Standalone Demo</title>
-  <meta name="description" content="Interactive Karnaugh Map (K‑map) solver with 2–6 variables, Gray code mapping, and Quine–McCluskey simplification.">
+  <meta name="description" content="Interactive Karnaugh Map (K‑map) solver with 2–6 variables, Gray code mapping, and multiple solving methods.">
   <meta name="robots" content="index,follow">
 
   <style>
@@ -99,7 +99,7 @@
     </header>
 
     <section class="hero card">
-      <p>Click cells to toggle 0/1. Use the selector to choose the number of variables (2–8). The simplified expression updates instantly.</p>
+      <p>Click cells to toggle 0/1. Choose solving method and output format. The simplified expression updates instantly with multiple visualization options.</p>
     </section>
 
     <section class="card" aria-label="Karnaugh Map Solver">
@@ -107,42 +107,111 @@
         <style>
           .karnaugh-solver { font-family: Arial, sans-serif; margin: 20px; }
           .karnaugh-solver .instructions { font-size: 16px; margin-bottom: 20px; }
-          .karnaugh-solver .settings { margin-bottom: 20px; text-align: center; }
-          .karnaugh-solver .settings select { font-size: 16px; padding: 5px; width: auto; max-width: 100px; }
+          .karnaugh-solver .settings { 
+            margin-bottom: 20px; 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
+            gap: 15px; 
+            text-align: center; 
+          }
+          .karnaugh-solver .setting-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+          }
+          .karnaugh-solver .settings select { 
+            font-size: 14px; 
+            padding: 8px 12px; 
+            border-radius: 6px;
+            border: 1px solid var(--muted);
+            background: var(--card);
+            color: var(--text);
+            min-width: 160px;
+          }
+          .karnaugh-solver .settings label {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--muted);
+          }
           .karnaugh-solver table { width: 100%; max-width: 600px; margin: 0 auto; border-collapse: collapse; }
           .karnaugh-solver td {
             width: 40px; height: 40px; text-align: center; vertical-align: middle;
             border: 1px solid #333; font-size: 18px; user-select: none; cursor: pointer;
           }
           .karnaugh-solver td.active { background-color: #aaf; }
-          .karnaugh-solver .result-area { text-align: center; font-weight: bold; margin-top: 20px; }
+          .karnaugh-solver .result-area { 
+            text-align: left; 
+            margin-top: 20px; 
+            padding: 15px;
+            background: var(--panel);
+            border-radius: 8px;
+            border: 1px solid rgba(148,163,184,.2);
+          }
+          .karnaugh-solver .result-title {
+            font-weight: bold;
+            font-size: 18px;
+            margin-bottom: 10px;
+            color: var(--accent);
+          }
+          .karnaugh-solver .result-content {
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            line-height: 1.4;
+          }
           .karnaugh-solver .mobile-fallback {
             display: none; padding: 20px; background: #fee; text-align: center; font-size: 16px; border: 1px solid #f00;
           }
           @media (max-width: 767px) {
             .karnaugh-solver > *:not(.mobile-fallback) { display: none; }
             .karnaugh-solver .mobile-fallback { display: block; }
+            .karnaugh-solver .settings {
+              grid-template-columns: 1fr;
+            }
           }
         </style>
 
         <div class="instructions">
-          Tap a cell to toggle between 0 and 1; the simplified expression updates automatically.
+          Tap a cell to toggle between 0 and 1; choose your preferred solving method and output format below.
         </div>
 
         <div class="settings">
-          <label for="var-count">Number of variables: </label>
-          <select id="var-count">
-            <option value="2">2×2</option>
-            <option value="3">2×4</option>
-            <option value="4" selected>4×4</option>
-            <option value="5">4×8</option>
-            <option value="6">8×8</option>
-          </select>
+          <div class="setting-group">
+            <label for="var-count">Number of variables:</label>
+            <select id="var-count">
+              <option value="2">2×2 (2 vars)</option>
+              <option value="3">2×4 (3 vars)</option>
+              <option value="4" selected>4×4 (4 vars)</option>
+              <option value="5">4×8 (5 vars)</option>
+              <option value="6">8×8 (6 vars)</option>
+            </select>
+          </div>
+          
+          <div class="setting-group">
+            <label for="solve-method">Solving method:</label>
+            <select id="solve-method">
+              <option value="sop" selected>Sum of Products (SOP)</option>
+              <option value="pos">Product of Sums (POS)</option>
+              <option value="detailed">Detailed Steps</option>
+            </select>
+          </div>
+          
+          <div class="setting-group">
+            <label for="output-format">Output format:</label>
+            <select id="output-format">
+              <option value="text" selected>Text Expression</option>
+              <option value="gates">Logic Gates</option>
+              <option value="python">Python Code</option>
+            </select>
+          </div>
         </div>
 
         <div id="kmap-container"></div>
 
-        <div class="result-area" id="result">Simplified expression will appear here.</div>
+        <div class="result-area">
+          <div class="result-title" id="result-title">Simplified Expression</div>
+          <div class="result-content" id="result">Click cells to see the simplified expression here.</div>
+        </div>
 
         <div class="mobile-fallback">
           This Karnaugh Map Solver requires a screen at least 768px wide. Please switch to a larger device or rotate your screen.
@@ -193,6 +262,7 @@
               let s = num.toString(2);
               return '0'.repeat(len - s.length) + s;
             }
+
             function combineTerms(a, b) {
               let diff = 0, out = '';
               for (let i = 0; i < a.length; i++) {
@@ -201,29 +271,38 @@
               }
               return diff === 1 ? out : null;
             }
+
             function findPrimeImplicants(minterms, vars) {
               let terms = minterms.map(m => ({ term: getBinary(m, vars), minterms: [m], used: false }));
               let primes = [];
+              let steps = [`Initial minterms: ${minterms.join(', ')}\n`];
+              
               while (terms.length) {
                 const next = [];
                 terms.forEach((t, i) => terms.slice(i+1).forEach(u => {
                   const c = combineTerms(t.term, u.term);
                   if (c) {
                     t.used = u.used = true;
-                    if (!next.some(x => x.term === c)) next.push({ term: c, minterms: [...new Set([...t.minterms, ...u.minterms])], used: false });
+                    if (!next.some(x => x.term === c)) {
+                      next.push({ term: c, minterms: [...new Set([...t.minterms, ...u.minterms])], used: false });
+                      steps.push(`Combined ${t.term} + ${u.term} → ${c}`);
+                    }
                   }
                 }));
                 terms.forEach(t => { if (!t.used) primes.push(t); });
                 terms = next;
               }
-              return primes;
+              
+              return { primes, steps };
             }
+
             function selectPrimeImplicants(primes, minterms) {
               const chart = {};
               minterms.forEach(m => chart[m] = primes.reduce((arr,p,i) => p.minterms.includes(m) ? arr.concat(i) : arr, []));
               const essential = new Set(Object.values(chart).filter(c => c.length === 1).map(c => c[0]));
               let covered = new Set(); essential.forEach(i => primes[i].minterms.forEach(m => covered.add(m)));
               let selected = [...essential]; let rem = minterms.filter(m => !covered.has(m));
+              
               while (rem.length) {
                 let best = -1, bestCount = 0;
                 primes.forEach((p,i) => {
@@ -238,11 +317,17 @@
               }
               return selected.map(i => primes[i]);
             }
-            function termToExpr(term) {
+
+            function termToExpr(term, isPos = false) {
               const vars = ['A','B','C','D','E','F'];
-              return term.split('').map((b,i) => b === '1' ? vars[i] : b === '0' ? vars[i] + "'" : '').join('') || '1';
+              if (isPos) {
+                return '(' + term.split('').map((b,i) => b === '0' ? vars[i] : b === '1' ? vars[i] + "'" : '').filter(x => x).join(' + ') + ')';
+              } else {
+                return term.split('').map((b,i) => b === '1' ? vars[i] : b === '0' ? vars[i] + "'" : '').join('') || '1';
+              }
             }
-            function solve() {
+
+            function solveSOP() {
               const minterms = [];
               for (let r = 0; r < rowCodes.length; r++) {
                 for (let c = 0; c < colCodes.length; c++) {
@@ -253,23 +338,188 @@
                 }
               }
               const total = Math.pow(2, numVars);
-              let result;
-              if (!minterms.length) result = '0';
-              else if (minterms.length === total) result = '1';
-              else {
-                const primes = findPrimeImplicants(minterms, numVars);
-                const sel = selectPrimeImplicants(primes, minterms);
-                result = sel.map(p => termToExpr(p.term)).join(' + ');
-              }
-              document.getElementById('result').textContent = 'Simplified Expression: ' + result;
+              
+              if (!minterms.length) return { result: '0', steps: ['No minterms selected (all zeros)'] };
+              if (minterms.length === total) return { result: '1', steps: ['All minterms selected (function always true)'] };
+              
+              const { primes, steps } = findPrimeImplicants(minterms, numVars);
+              const sel = selectPrimeImplicants(primes, minterms);
+              const result = sel.map(p => termToExpr(p.term)).join(' + ');
+              
+              return { result, steps, primes, selected: sel };
             }
 
+            function solvePOS() {
+              const maxterms = [];
+              for (let r = 0; r < rowCodes.length; r++) {
+                for (let c = 0; c < colCodes.length; c++) {
+                  if (!kmap[r][c]) {
+                    const bits = rowCodes[r] + colCodes[c];
+                    maxterms.push(parseInt(bits, 2));
+                  }
+                }
+              }
+              const total = Math.pow(2, numVars);
+              
+              if (!maxterms.length) return { result: '1', steps: ['No maxterms (all ones)'] };
+              if (maxterms.length === total) return { result: '0', steps: ['All maxterms (function always false)'] };
+              
+              const { primes, steps } = findPrimeImplicants(maxterms, numVars);
+              const sel = selectPrimeImplicants(primes, maxterms);
+              const result = sel.map(p => termToExpr(p.term, true)).join(' · ');
+              
+              return { result, steps, primes, selected: sel };
+            }
+
+            function formatAsGates(expression, method) {
+              if (expression === '0' || expression === '1') {
+                return `${expression === '1' ? 'VCC' : 'GND'}\n  |\n  └─ OUTPUT`;
+              }
+              
+              let gates = '';
+              if (method === 'sop') {
+                gates += 'Sum of Products Logic Gates:\n\n';
+                const terms = expression.split(' + ');
+                
+                terms.forEach((term, i) => {
+                  gates += `Term ${i + 1}: ${term}\n`;
+                  const vars = term.replace(/'/g, '').split('').filter(v => /[A-F]/.test(v));
+                  
+                  if (vars.length > 1) {
+                    gates += '  ';
+                    vars.forEach((v, j) => {
+                      if (term.includes(v + "'")) gates += `${v}' ──┐\n      `;
+                      else gates += `${v}  ──┤\n      `;
+                    });
+                    gates += `   AND ──┐\n`;
+                  } else {
+                    gates += `  ${term} ────────┐\n`;
+                  }
+                  gates += '\n';
+                });
+                
+                if (terms.length > 1) {
+                  gates += 'Final OR Gate:\n';
+                  terms.forEach((_, i) => gates += `Term ${i + 1} ──┤\n            `);
+                  gates += ' OR ── OUTPUT\n';
+                }
+              } else {
+                gates += 'Product of Sums Logic Gates:\n\n';
+                const terms = expression.split(' · ');
+                
+                terms.forEach((term, i) => {
+                  const cleanTerm = term.replace(/[()]/g, '');
+                  gates += `Factor ${i + 1}: ${cleanTerm}\n`;
+                  const vars = cleanTerm.split(' + ');
+                  
+                  gates += '  ';
+                  vars.forEach((v, j) => {
+                    gates += `${v.trim()} ──┤\n      `;
+                  });
+                  gates += `   OR ──┐\n\n`;
+                });
+                
+                if (terms.length > 1) {
+                  gates += 'Final AND Gate:\n';
+                  terms.forEach((_, i) => gates += `Factor ${i + 1} ──┤\n             `);
+                  gates += ' AND ── OUTPUT\n';
+                }
+              }
+              
+              return gates;
+            }
+
+            function formatAsPython(expression, method) {
+              if (expression === '0' || expression === '1') {
+                return `def boolean_function(A=0, B=0, C=0, D=0, E=0, F=0):
+    """Generated K-map function"""
+    return ${expression === '1' ? 'True' : 'False'}
+
+# Test the function
+print(boolean_function())  # ${expression === '1' ? 'True' : 'False'}`;
+              }
+              
+              const maxVars = Math.max(...'ABCDEF'.split('').map(v => 
+                expression.includes(v) ? 'ABCDEF'.indexOf(v) + 1 : 0
+              ));
+              const varList = 'ABCDEF'.slice(0, maxVars).split('').join('=0, ') + '=0';
+              
+              let pythonExpr = expression
+                .replace(/'/g, ' == 0') // NOT gates
+                .replace(/([A-F])(?! ==)/g, '$1 == 1') // Normal variables
+                .replace(/ \+ /g, ' or ') // OR operations
+                .replace(/ · /g, ' and ') // AND operations
+                .replace(/\(/g, '(')
+                .replace(/\)/g, ')');
+              
+              // Clean up the expression
+              pythonExpr = pythonExpr.replace(/([A-F]) == 1 == 0/g, '$1 == 0');
+              
+              return `def boolean_function(${varList}):
+    """Generated K-map function - ${method.toUpperCase()}"""
+    return ${pythonExpr}
+
+# Test examples
+print("Testing some combinations:")
+for A in [0, 1]:
+    for B in [0, 1]:
+        result = boolean_function(A, B)
+        print(f"A={A}, B={B} → {result}")`;
+            }
+
+            function solve() {
+              const method = document.getElementById('solve-method').value;
+              const format = document.getElementById('output-format').value;
+              
+              let solution;
+              if (method === 'pos') {
+                solution = solvePOS();
+              } else {
+                solution = solveSOP();
+              }
+              
+              const titleEl = document.getElementById('result-title');
+              const resultEl = document.getElementById('result');
+              
+              let output = '';
+              let title = '';
+              
+              if (method === 'detailed') {
+                title = 'Detailed Solution Steps';
+                const sopSolution = solveSOP();
+                output = sopSolution.steps.join('\n') + '\n\nFinal Result: ' + sopSolution.result;
+              } else {
+                switch (format) {
+                  case 'text':
+                    title = method === 'pos' ? 'Product of Sums (POS)' : 'Sum of Products (SOP)';
+                    output = solution.result;
+                    break;
+                  case 'gates':
+                    title = 'Logic Gate Diagram';
+                    output = formatAsGates(solution.result, method);
+                    break;
+                  case 'python':
+                    title = 'Python Implementation';
+                    output = formatAsPython(solution.result, method);
+                    break;
+                }
+              }
+              
+              titleEl.textContent = title;
+              resultEl.textContent = output;
+            }
+
+            // Event listeners
             document.getElementById('var-count').addEventListener('change', e => {
               numVars = parseInt(e.target.value, 10);
               generateMap();
               solve();
             });
 
+            document.getElementById('solve-method').addEventListener('change', solve);
+            document.getElementById('output-format').addEventListener('change', solve);
+
+            // Initialize
             generateMap();
             solve();
           })();
