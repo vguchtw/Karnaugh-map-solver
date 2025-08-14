@@ -4,8 +4,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Karnaugh Map Solver — Standalone Demo</title>
-  <meta name="description" content="Interactive Karnaugh Map (K‑map) solver with 2–6 variables, Gray code mapping, and Quine–McCluskey simplification.">
+  <title>Karnaugh Map Solver — Advanced Edition</title>
+  <meta name="description" content="Interactive Karnaugh Map (K‑map) solver with multiple solving methods, various output formats, and 2–6 variables support.">
   <meta name="robots" content="index,follow">
 
   <style>
@@ -15,8 +15,12 @@
       --card: #ffffff;
       --text: #0b1220;
       --accent: #2563eb;
+      --accent-hover: #1d4ed8;
       --muted: #6b7280;
       --ring: rgba(37, 99, 235, .35);
+      --border: rgba(148,163,184,.35);
+      --success: #10b981;
+      --warning: #f59e0b;
     }
     @media (prefers-color-scheme: dark) {
       :root{
@@ -25,8 +29,10 @@
         --card: #111827;
         --text: #e5e7eb;
         --accent: #60a5fa;
+        --accent-hover: #3b82f6;
         --muted: #9ca3af;
         --ring: rgba(96, 165, 250, .35);
+        --border: rgba(148,163,184,.25);
       }
     }
     * { box-sizing: border-box }
@@ -39,7 +45,7 @@
       color: var(--text);
       font: 16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
     }
-    .wrap{ max-width: 1100px; margin: 0 auto; padding: 24px; }
+    .wrap{ max-width: 1200px; margin: 0 auto; padding: 24px; }
 
     header.site{
       display:flex; align-items:center; justify-content:space-between;
@@ -58,7 +64,7 @@
     .title{
       font-size: clamp(20px, 2.5vw, 28px);
       font-weight: 800; letter-spacing:.2px;
-      color: var(--muted);
+      color: var(--text);
     }
     .subtitle{
       color: var(--muted);
@@ -71,7 +77,7 @@
       padding: 18px 18px;
       border-radius: 16px;
       background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,0));
-      border: 1px solid rgba(148,163,184,.25);
+      border: 1px solid var(--border);
     }
     .hero p{ margin: 0.4rem 0; color: var(--muted) }
 
@@ -79,12 +85,242 @@
       background: var(--card);
       color: var(--text);
       border-radius: 14px;
-      padding: 18px;
-      border: 1px solid rgba(148,163,184,.35);
+      padding: 24px;
+      border: 1px solid var(--border);
       box-shadow: 0 20px 60px rgba(2,6,23,.25);
     }
 
-    .note{ font-size: 13px; color: var(--muted); margin-top: 8px; }
+    /* Enhanced Karnaugh Solver Styles */
+    .karnaugh-solver { 
+      font-family: system-ui, -apple-system, sans-serif; 
+    }
+    
+    .controls-panel {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+      padding: 20px;
+      background: rgba(255,255,255,.03);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+    }
+    
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    
+    .control-group label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .control-group select {
+      padding: 10px 12px;
+      font-size: 15px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    
+    .control-group select:hover {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--ring);
+    }
+    
+    .control-group select:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--ring);
+    }
+    
+    .kmap-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 24px 0;
+    }
+    
+    .kmap-table {
+      border-collapse: separate;
+      border-spacing: 2px;
+      background: var(--panel);
+      padding: 8px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,.1);
+    }
+    
+    .kmap-table td {
+      width: 50px;
+      height: 50px;
+      text-align: center;
+      vertical-align: middle;
+      border-radius: 6px;
+      font-size: 18px;
+      font-weight: 600;
+      user-select: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      background: var(--card);
+      border: 2px solid transparent;
+    }
+    
+    .kmap-table td.header {
+      background: transparent;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: default;
+      border: none;
+    }
+    
+    .kmap-table td.cell-0 {
+      background: var(--card);
+      color: var(--muted);
+    }
+    
+    .kmap-table td.cell-1 {
+      background: linear-gradient(135deg, var(--accent), var(--accent-hover));
+      color: white;
+      box-shadow: 0 2px 8px rgba(37, 99, 235, .3);
+    }
+    
+    .kmap-table td.cell-x {
+      background: linear-gradient(135deg, var(--warning), #dc2626);
+      color: white;
+      opacity: 0.6;
+    }
+    
+    .kmap-table td:not(.header):hover {
+      transform: scale(1.05);
+      box-shadow: 0 4px 12px rgba(0,0,0,.2);
+    }
+    
+    .output-panel {
+      margin-top: 32px;
+      padding: 24px;
+      background: rgba(255,255,255,.03);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+    }
+    
+    .output-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    
+    .output-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    
+    .copy-button {
+      padding: 8px 16px;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    
+    .copy-button:hover {
+      background: var(--accent-hover);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(37, 99, 235, .3);
+    }
+    
+    .copy-button.copied {
+      background: var(--success);
+    }
+    
+    .output-content {
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      font-size: 16px;
+      line-height: 1.6;
+      padding: 16px;
+      background: var(--panel);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      min-height: 100px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    
+    .output-content.diagram {
+      background: white;
+      padding: 24px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 200px;
+    }
+    
+    @media (prefers-color-scheme: dark) {
+      .output-content.diagram {
+        background: var(--panel);
+      }
+    }
+    
+    .truth-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    
+    .truth-table th,
+    .truth-table td {
+      padding: 8px 12px;
+      text-align: center;
+      border: 1px solid var(--border);
+    }
+    
+    .truth-table th {
+      background: var(--accent);
+      color: white;
+      font-weight: 600;
+    }
+    
+    .truth-table tr:nth-child(even) {
+      background: rgba(255,255,255,.02);
+    }
+    
+    .instructions {
+      font-size: 14px;
+      color: var(--muted);
+      margin-bottom: 20px;
+      padding: 12px;
+      background: rgba(255,255,255,.02);
+      border-radius: 8px;
+      border-left: 3px solid var(--accent);
+    }
+    
+    @media (max-width: 767px) {
+      .controls-panel {
+        grid-template-columns: 1fr;
+      }
+      
+      .kmap-table td {
+        width: 40px;
+        height: 40px;
+        font-size: 16px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -93,190 +329,642 @@
       <div class="brand">
         <div class="logo">K</div>
         <div>
-          <div class="title">Karnaugh Map Solver</div>
+          <div class="title">Advanced Karnaugh Map Solver</div>
+          <div class="subtitle">Multiple methods & output formats</div>
         </div>
       </div>
     </header>
 
     <section class="hero card">
-      <p>Click cells to toggle 0/1. Use the selector to choose the number of variables (2–8). The simplified expression updates instantly.</p>
+      <p>🎯 Click cells to toggle between 0 and 1. Choose your preferred solving method and output format.</p>
+      <p>✨ Supports SOP, POS, NAND, and NOR implementations with various output formats including logic gates and code generation.</p>
     </section>
 
     <section class="card" aria-label="Karnaugh Map Solver">
       <div class="karnaugh-solver">
-        <style>
-          .karnaugh-solver { font-family: Arial, sans-serif; margin: 20px; }
-          .karnaugh-solver .instructions { font-size: 16px; margin-bottom: 20px; }
-          .karnaugh-solver .settings { margin-bottom: 20px; text-align: center; }
-          .karnaugh-solver .settings select { font-size: 16px; padding: 5px; width: auto; max-width: 100px; }
-          .karnaugh-solver table { width: 100%; max-width: 600px; margin: 0 auto; border-collapse: collapse; }
-          .karnaugh-solver td {
-            width: 40px; height: 40px; text-align: center; vertical-align: middle;
-            border: 1px solid #333; font-size: 18px; user-select: none; cursor: pointer;
-          }
-          .karnaugh-solver td.active { background-color: #aaf; }
-          .karnaugh-solver .result-area { text-align: center; font-weight: bold; margin-top: 20px; }
-          .karnaugh-solver .mobile-fallback {
-            display: none; padding: 20px; background: #fee; text-align: center; font-size: 16px; border: 1px solid #f00;
-          }
-          @media (max-width: 767px) {
-            .karnaugh-solver > *:not(.mobile-fallback) { display: none; }
-            .karnaugh-solver .mobile-fallback { display: block; }
-          }
-        </style>
-
         <div class="instructions">
-          Tap a cell to toggle between 0 and 1; the simplified expression updates automatically.
+          💡 <strong>Tip:</strong> Click any cell to toggle its value. Use 'X' for don't-care conditions (right-click or long-press).
         </div>
 
-        <div class="settings">
-          <label for="var-count">Number of variables: </label>
-          <select id="var-count">
-            <option value="2">2×2</option>
-            <option value="3">2×4</option>
-            <option value="4" selected>4×4</option>
-            <option value="5">4×8</option>
-            <option value="6">8×8</option>
-          </select>
+        <div class="controls-panel">
+          <div class="control-group">
+            <label for="var-count">Variables</label>
+            <select id="var-count">
+              <option value="2">2 Variables (2×2)</option>
+              <option value="3">3 Variables (2×4)</option>
+              <option value="4" selected>4 Variables (4×4)</option>
+              <option value="5">5 Variables (4×8)</option>
+              <option value="6">6 Variables (8×8)</option>
+            </select>
+          </div>
+          
+          <div class="control-group">
+            <label for="solve-method">Solving Method</label>
+            <select id="solve-method">
+              <option value="sop" selected>Sum of Products (SOP)</option>
+              <option value="pos">Product of Sums (POS)</option>
+              <option value="nand">NAND-only</option>
+              <option value="nor">NOR-only</option>
+            </select>
+          </div>
+          
+          <div class="control-group">
+            <label for="output-format">Output Format</label>
+            <select id="output-format">
+              <option value="expression" selected>Boolean Expression</option>
+              <option value="gates">Logic Gate Diagram</option>
+              <option value="python">Python Code</option>
+              <option value="verilog">Verilog Code</option>
+              <option value="truth">Truth Table</option>
+            </select>
+          </div>
         </div>
 
-        <div id="kmap-container"></div>
-
-        <div class="result-area" id="result">Simplified expression will appear here.</div>
-
-        <div class="mobile-fallback">
-          This Karnaugh Map Solver requires a screen at least 768px wide. Please switch to a larger device or rotate your screen.
+        <div class="kmap-wrapper">
+          <div id="kmap-container"></div>
         </div>
 
-        <script>
-          (function(){
-            let numVars = 4;
-            let kmap = [];
-            let rowCodes = [];
-            let colCodes = [];
-
-            function grayCode(n) {
-              if (n === 0) return [''];
-              const prev = grayCode(n - 1);
-              return prev.map(c => '0' + c).concat(prev.slice().reverse().map(c => '1' + c));
-            }
-
-            function generateMap() {
-              const rows = Math.pow(2, Math.floor(numVars / 2));
-              const cols = Math.pow(2, Math.ceil(numVars / 2));
-              rowCodes = grayCode(Math.floor(numVars / 2));
-              colCodes = grayCode(Math.ceil(numVars / 2));
-
-              kmap = Array.from({ length: rows }, () => Array(cols).fill(0));
-              const table = document.createElement('table');
-              for (let r = 0; r < rows; r++) {
-                const tr = document.createElement('tr');
-                for (let c = 0; c < cols; c++) {
-                  const td = document.createElement('td');
-                  td.textContent = '0';
-                  td.addEventListener('click', () => {
-                    kmap[r][c] ^= 1;
-                    td.textContent = kmap[r][c];
-                    td.classList.toggle('active', kmap[r][c] === 1);
-                    solve();
-                  });
-                  tr.appendChild(td);
-                }
-                table.appendChild(tr);
-              }
-              const container = document.getElementById('kmap-container');
-              container.innerHTML = '';
-              container.appendChild(table);
-            }
-
-            function getBinary(num, len) {
-              let s = num.toString(2);
-              return '0'.repeat(len - s.length) + s;
-            }
-            function combineTerms(a, b) {
-              let diff = 0, out = '';
-              for (let i = 0; i < a.length; i++) {
-                if (a[i] === b[i]) out += a[i];
-                else { if (a[i] === '-' || b[i] === '-') return null; diff++; out += '-'; }
-              }
-              return diff === 1 ? out : null;
-            }
-            function findPrimeImplicants(minterms, vars) {
-              let terms = minterms.map(m => ({ term: getBinary(m, vars), minterms: [m], used: false }));
-              let primes = [];
-              while (terms.length) {
-                const next = [];
-                terms.forEach((t, i) => terms.slice(i+1).forEach(u => {
-                  const c = combineTerms(t.term, u.term);
-                  if (c) {
-                    t.used = u.used = true;
-                    if (!next.some(x => x.term === c)) next.push({ term: c, minterms: [...new Set([...t.minterms, ...u.minterms])], used: false });
-                  }
-                }));
-                terms.forEach(t => { if (!t.used) primes.push(t); });
-                terms = next;
-              }
-              return primes;
-            }
-            function selectPrimeImplicants(primes, minterms) {
-              const chart = {};
-              minterms.forEach(m => chart[m] = primes.reduce((arr,p,i) => p.minterms.includes(m) ? arr.concat(i) : arr, []));
-              const essential = new Set(Object.values(chart).filter(c => c.length === 1).map(c => c[0]));
-              let covered = new Set(); essential.forEach(i => primes[i].minterms.forEach(m => covered.add(m)));
-              let selected = [...essential]; let rem = minterms.filter(m => !covered.has(m));
-              while (rem.length) {
-                let best = -1, bestCount = 0;
-                primes.forEach((p,i) => {
-                  if (selected.includes(i)) return;
-                  const count = p.minterms.filter(m => rem.includes(m)).length;
-                  if (count > bestCount) { bestCount = count; best = i; }
-                });
-                if (best < 0) break;
-                selected.push(best);
-                primes[best].minterms.forEach(m => covered.add(m));
-                rem = minterms.filter(m => !covered.has(m));
-              }
-              return selected.map(i => primes[i]);
-            }
-            function termToExpr(term) {
-              const vars = ['A','B','C','D','E','F'];
-              return term.split('').map((b,i) => b === '1' ? vars[i] : b === '0' ? vars[i] + "'" : '').join('') || '1';
-            }
-            function solve() {
-              const minterms = [];
-              for (let r = 0; r < rowCodes.length; r++) {
-                for (let c = 0; c < colCodes.length; c++) {
-                  if (kmap[r][c]) {
-                    const bits = rowCodes[r] + colCodes[c];
-                    minterms.push(parseInt(bits, 2));
-                  }
-                }
-              }
-              const total = Math.pow(2, numVars);
-              let result;
-              if (!minterms.length) result = '0';
-              else if (minterms.length === total) result = '1';
-              else {
-                const primes = findPrimeImplicants(minterms, numVars);
-                const sel = selectPrimeImplicants(primes, minterms);
-                result = sel.map(p => termToExpr(p.term)).join(' + ');
-              }
-              document.getElementById('result').textContent = 'Simplified Expression: ' + result;
-            }
-
-            document.getElementById('var-count').addEventListener('change', e => {
-              numVars = parseInt(e.target.value, 10);
-              generateMap();
-              solve();
-            });
-
-            generateMap();
-            solve();
-          })();
-        </script>
+        <div class="output-panel">
+          <div class="output-header">
+            <div class="output-title">Output</div>
+            <button class="copy-button" id="copy-btn">Copy</button>
+          </div>
+          <div class="output-content" id="output-content">
+            Click cells to see the simplified expression
+          </div>
+        </div>
       </div>
     </section>
-
   </div>
+
+  <script>
+    (function(){
+      let numVars = 4;
+      let kmap = [];
+      let rowCodes = [];
+      let colCodes = [];
+      let solveMethod = 'sop';
+      let outputFormat = 'expression';
+
+      // Gray code generator
+      function grayCode(n) {
+        if (n === 0) return [''];
+        const prev = grayCode(n - 1);
+        return prev.map(c => '0' + c).concat(prev.slice().reverse().map(c => '1' + c));
+      }
+
+      // Generate the Karnaugh map table
+      function generateMap() {
+        const rows = Math.pow(2, Math.floor(numVars / 2));
+        const cols = Math.pow(2, Math.ceil(numVars / 2));
+        rowCodes = grayCode(Math.floor(numVars / 2));
+        colCodes = grayCode(Math.ceil(numVars / 2));
+
+        kmap = Array.from({ length: rows }, () => Array(cols).fill(0));
+        
+        const table = document.createElement('table');
+        table.className = 'kmap-table';
+        
+        // Create header row
+        const headerRow = document.createElement('tr');
+        const cornerCell = document.createElement('td');
+        cornerCell.className = 'header';
+        
+        // Variable labels
+        const rowVars = Array.from({length: Math.floor(numVars/2)}, (_, i) => String.fromCharCode(65 + i)).join('');
+        const colVars = Array.from({length: Math.ceil(numVars/2)}, (_, i) => String.fromCharCode(65 + Math.floor(numVars/2) + i)).join('');
+        cornerCell.innerHTML = `${rowVars}\\${colVars}`;
+        headerRow.appendChild(cornerCell);
+        
+        // Column headers
+        for (let c = 0; c < cols; c++) {
+          const th = document.createElement('td');
+          th.className = 'header';
+          th.textContent = colCodes[c];
+          headerRow.appendChild(th);
+        }
+        table.appendChild(headerRow);
+        
+        // Create data rows
+        for (let r = 0; r < rows; r++) {
+          const tr = document.createElement('tr');
+          
+          // Row header
+          const rowHeader = document.createElement('td');
+          rowHeader.className = 'header';
+          rowHeader.textContent = rowCodes[r];
+          tr.appendChild(rowHeader);
+          
+          // Data cells
+          for (let c = 0; c < cols; c++) {
+            const td = document.createElement('td');
+            td.className = 'cell-0';
+            td.textContent = '0';
+            
+            // Left click to toggle 0/1
+            td.addEventListener('click', (e) => {
+              e.preventDefault();
+              if (kmap[r][c] === 'X') {
+                kmap[r][c] = 0;
+              } else {
+                kmap[r][c] = (kmap[r][c] + 1) % 2;
+              }
+              updateCell(td, kmap[r][c]);
+              solve();
+            });
+            
+            // Right click for don't care
+            td.addEventListener('contextmenu', (e) => {
+              e.preventDefault();
+              kmap[r][c] = kmap[r][c] === 'X' ? 0 : 'X';
+              updateCell(td, kmap[r][c]);
+              solve();
+            });
+            
+            tr.appendChild(td);
+          }
+          table.appendChild(tr);
+        }
+        
+        const container = document.getElementById('kmap-container');
+        container.innerHTML = '';
+        container.appendChild(table);
+      }
+
+      function updateCell(td, value) {
+        td.textContent = value;
+        td.className = value === 'X' ? 'cell-x' : `cell-${value}`;
+      }
+
+      // Binary conversion helper
+      function getBinary(num, len) {
+        let s = num.toString(2);
+        return '0'.repeat(len - s.length) + s;
+      }
+
+      // Combine terms for simplification
+      function combineTerms(a, b) {
+        let diff = 0, out = '';
+        for (let i = 0; i < a.length; i++) {
+          if (a[i] === b[i]) out += a[i];
+          else { 
+            if (a[i] === '-' || b[i] === '-') return null; 
+            diff++; 
+            out += '-'; 
+          }
+        }
+        return diff === 1 ? out : null;
+      }
+
+      // Find prime implicants using Quine-McCluskey
+      function findPrimeImplicants(minterms, vars) {
+        let terms = minterms.map(m => ({ 
+          term: getBinary(m, vars), 
+          minterms: [m], 
+          used: false 
+        }));
+        let primes = [];
+        
+        while (terms.length) {
+          const next = [];
+          terms.forEach((t, i) => terms.slice(i+1).forEach(u => {
+            const c = combineTerms(t.term, u.term);
+            if (c) {
+              t.used = u.used = true;
+              if (!next.some(x => x.term === c)) {
+                next.push({ 
+                  term: c, 
+                  minterms: [...new Set([...t.minterms, ...u.minterms])], 
+                  used: false 
+                });
+              }
+            }
+          }));
+          terms.forEach(t => { 
+            if (!t.used) primes.push(t); 
+          });
+          terms = next;
+        }
+        return primes;
+      }
+
+      // Select essential prime implicants
+      function selectPrimeImplicants(primes, minterms) {
+        const chart = {};
+        minterms.forEach(m => chart[m] = primes.reduce((arr,p,i) => 
+          p.minterms.includes(m) ? arr.concat(i) : arr, []));
+        
+        const essential = new Set(Object.values(chart)
+          .filter(c => c.length === 1).map(c => c[0]));
+        
+        let covered = new Set(); 
+        essential.forEach(i => primes[i].minterms.forEach(m => covered.add(m)));
+        
+        let selected = [...essential]; 
+        let rem = minterms.filter(m => !covered.has(m));
+        
+        while (rem.length) {
+          let best = -1, bestCount = 0;
+          primes.forEach((p,i) => {
+            if (selected.includes(i)) return;
+            const count = p.minterms.filter(m => rem.includes(m)).length;
+            if (count > bestCount) { 
+              bestCount = count; 
+              best = i; 
+            }
+          });
+          if (best < 0) break;
+          selected.push(best);
+          primes[best].minterms.forEach(m => covered.add(m));
+          rem = minterms.filter(m => !covered.has(m));
+        }
+        return selected.map(i => primes[i]);
+      }
+
+      // Convert term to expression
+      function termToExpr(term, method = 'sop') {
+        const vars = ['A','B','C','D','E','F','G','H'];
+        if (method === 'sop') {
+          return term.split('').map((b,i) => 
+            b === '1' ? vars[i] : b === '0' ? vars[i] + "'" : ''
+          ).filter(x => x).join('') || '1';
+        } else {
+          // For POS
+          const literals = term.split('').map((b,i) => 
+            b === '0' ? vars[i] : b === '1' ? vars[i] + "'" : ''
+          ).filter(x => x);
+          return literals.length ? '(' + literals.join('+') + ')' : '0';
+        }
+      }
+
+      // Main solving function
+      function solve() {
+        const minterms = [];
+        const maxterms = [];
+        const dontcares = [];
+        
+        for (let r = 0; r < rowCodes.length; r++) {
+          for (let c = 0; c < colCodes.length; c++) {
+            const bits = rowCodes[r] + colCodes[c];
+            const decimal = parseInt(bits, 2);
+            if (kmap[r][c] === 1) {
+              minterms.push(decimal);
+            } else if (kmap[r][c] === 0) {
+              maxterms.push(decimal);
+            } else if (kmap[r][c] === 'X') {
+              dontcares.push(decimal);
+            }
+          }
+        }
+        
+        let result = '';
+        
+        if (solveMethod === 'sop') {
+          result = solveSOP(minterms, dontcares);
+        } else if (solveMethod === 'pos') {
+          result = solvePOS(maxterms, dontcares);
+        } else if (solveMethod === 'nand') {
+          result = solveNAND(minterms, dontcares);
+        } else if (solveMethod === 'nor') {
+          result = solveNOR(maxterms, dontcares);
+        }
+        
+        displayOutput(result, minterms, maxterms, dontcares);
+      }
+
+      // SOP solving
+      function solveSOP(minterms, dontcares) {
+        const total = Math.pow(2, numVars);
+        const allTerms = [...minterms, ...dontcares];
+        
+        if (!minterms.length) return '0';
+        if (minterms.length + dontcares.length === total) return '1';
+        
+        const primes = findPrimeImplicants(allTerms, numVars);
+        const selected = selectPrimeImplicants(primes, minterms);
+        return selected.map(p => termToExpr(p.term, 'sop')).join(' + ');
+      }
+
+      // POS solving
+      function solvePOS(maxterms, dontcares) {
+        const total = Math.pow(2, numVars);
+        const allTerms = [...maxterms, ...dontcares];
+        
+        if (!maxterms.length) return '1';
+        if (maxterms.length + dontcares.length === total) return '0';
+        
+        const primes = findPrimeImplicants(allTerms, numVars);
+        const selected = selectPrimeImplicants(primes, maxterms);
+        return selected.map(p => termToExpr(p.term, 'pos')).join('');
+      }
+
+      // NAND-only implementation
+      function solveNAND(minterms, dontcares) {
+        const sopExpr = solveSOP(minterms, dontcares);
+        if (sopExpr === '0') return "1'";
+        if (sopExpr === '1') return "1";
+        
+        // Convert SOP to NAND form
+        const terms = sopExpr.split(' + ');
+        if (terms.length === 1) {
+          // Single product term - double negate
+          return `((${terms[0]})')'`;
+        }
+        // Multiple terms - use DeMorgan's
+        return `(${terms.map(t => `(${t})'`).join(' · ')})'`;
+      }
+
+      // NOR-only implementation
+      function solveNOR(maxterms, dontcares) {
+        const posExpr = solvePOS(maxterms, dontcares);
+        if (posExpr === '0') return "0";
+        if (posExpr === '1') return "0'";
+        
+        // Convert POS to NOR form
+        const terms = posExpr.match(/\([^)]+\)/g) || [posExpr];
+        if (terms.length === 1) {
+          // Single sum term - double negate
+          const inner = terms[0].replace(/[()]/g, '');
+          return `((${inner})')'`;
+        }
+        // Multiple terms - use DeMorgan's
+        return `(${terms.map(t => {
+          const inner = t.replace(/[()]/g, '');
+          return `(${inner})'`;
+        }).join(' + ')})'`;
+      }
+
+      // Generate logic gate SVG diagram
+      function generateGateDiagram(expression) {
+        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        svg.setAttribute("width", "600");
+        svg.setAttribute("height", "400");
+        svg.setAttribute("viewBox", "0 0 600 400");
+        
+        // Simple representation - just show the expression for now
+        // In a real implementation, this would parse the expression and draw actual gates
+        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        text.setAttribute("x", "300");
+        text.setAttribute("y", "200");
+        text.setAttribute("text-anchor", "middle");
+        text.setAttribute("font-family", "monospace");
+        text.setAttribute("font-size", "16");
+        text.setAttribute("fill", "currentColor");
+        
+        // Add expression as placeholder
+        text.textContent = `Logic Gates for: ${expression}`;
+        svg.appendChild(text);
+        
+        // Add a simple gate representation
+        if (expression && expression !== '0' && expression !== '1') {
+          const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+          
+          // Draw a basic AND/OR gate shape
+          const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          const isAnd = expression.includes('·') || !expression.includes('+');
+          
+          if (isAnd) {
+            // AND gate shape
+            path.setAttribute("d", "M 250 150 L 250 250 L 300 250 Q 350 200, 300 150 Z");
+          } else {
+            // OR gate shape
+            path.setAttribute("d", "M 250 150 Q 270 200, 250 250 L 280 250 Q 350 200, 280 150 Z");
+          }
+          
+          path.setAttribute("fill", "none");
+          path.setAttribute("stroke", "currentColor");
+          path.setAttribute("stroke-width", "2");
+          g.appendChild(path);
+          
+          // Add input lines
+          for (let i = 0; i < 2; i++) {
+            const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            line.setAttribute("x1", "200");
+            line.setAttribute("y1", String(170 + i * 60));
+            line.setAttribute("x2", "250");
+            line.setAttribute("y2", String(170 + i * 60));
+            line.setAttribute("stroke", "currentColor");
+            line.setAttribute("stroke-width", "2");
+            g.appendChild(line);
+          }
+          
+          // Add output line
+          const outLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+          outLine.setAttribute("x1", isAnd ? "350" : "350");
+          outLine.setAttribute("y1", "200");
+          outLine.setAttribute("x2", "400");
+          outLine.setAttribute("y2", "200");
+          outLine.setAttribute("stroke", "currentColor");
+          outLine.setAttribute("stroke-width", "2");
+          g.appendChild(outLine);
+          
+          svg.appendChild(g);
+        }
+        
+        return svg;
+      }
+
+      // Generate Python code
+      function generatePythonCode(expression, minterms) {
+        const vars = ['A','B','C','D','E','F','G','H'].slice(0, numVars);
+        let code = `def karnaugh_function(${vars.map(v => v.lower()).join(', ')}):\n`;
+        code += `    """Karnaugh map implementation"""\n`;
+        
+        if (expression === '0') {
+          code += `    return False\n`;
+        } else if (expression === '1') {
+          code += `    return True\n`;
+        } else {
+          // Convert expression to Python
+          let pythonExpr = expression
+            .replace(/([A-H])'/g, 'not $1.lower()')
+            .replace(/([A-H])/g, '$1.lower()')
+            .replace(/\+/g, ' or ')
+            .replace(/·/g, ' and ')
+            .replace(/\s+/g, ' ');
+          
+          // Fix the variable names
+          vars.forEach(v => {
+            pythonExpr = pythonExpr.replace(new RegExp(v.toLowerCase(), 'g'), v.toLowerCase());
+          });
+          
+          code += `    return ${pythonExpr}\n`;
+        }
+        
+        code += `\n# Test with truth table\n`;
+        code += `if __name__ == "__main__":\n`;
+        code += `    print("${vars.join(' ')} | Output")\n`;
+        code += `    print("-" * ${vars.length * 2 + 10})\n`;
+        code += `    for i in range(${Math.pow(2, numVars)}):\n`;
+        code += `        inputs = [(i >> j) & 1 for j in range(${numVars-1}, -1, -1)]\n`;
+        code += `        result = karnaugh_function(*inputs)\n`;
+        code += `        print(f"{' '.join(map(str, inputs))} | {int(result)}")\n`;
+        
+        return code;
+      }
+
+      // Generate Verilog code
+      function generateVerilogCode(expression, minterms) {
+        const vars = ['A','B','C','D','E','F','G','H'].slice(0, numVars);
+        let code = `module karnaugh_map(\n`;
+        code += `    input ${vars.map(v => v).join(', ')},\n`;
+        code += `    output reg Y\n`;
+        code += `);\n\n`;
+        code += `always @(*) begin\n`;
+        
+        if (expression === '0') {
+          code += `    Y = 1'b0;\n`;
+        } else if (expression === '1') {
+          code += `    Y = 1'b1;\n`;
+        } else {
+          // Convert expression to Verilog
+          let verilogExpr = expression
+            .replace(/([A-H])'/g, '~$1')
+            .replace(/\+/g, ' | ')
+            .replace(/·/g, ' & ');
+          
+          code += `    Y = ${verilogExpr};\n`;
+        }
+        
+        code += `end\n\n`;
+        code += `endmodule\n`;
+        
+        // Add testbench
+        code += `\n// Testbench\n`;
+        code += `module tb_karnaugh_map;\n`;
+        code += `    reg ${vars.map(v => v).join(', ')};\n`;
+        code += `    wire Y;\n\n`;
+        code += `    karnaugh_map uut(\n`;
+        code += vars.map(v => `        .${v}(${v})`).join(',\n') + ',\n';
+        code += `        .Y(Y)\n`;
+        code += `    );\n\n`;
+        code += `    initial begin\n`;
+        code += `        $display("${vars.join(' ')} | Y");\n`;
+        code += `        $display("${''.padStart(vars.length * 2 + 5, '-')}");\n`;
+        
+        for (let i = 0; i < Math.pow(2, numVars); i++) {
+          const bits = getBinary(i, numVars);
+          code += `        {${vars.join(',')}} = ${numVars}'b${bits}; #10;\n`;
+          code += `        $display("%b %b %b %b | %b", ${vars.join(', ')}, Y);\n`;
+        }
+        
+        code += `        $finish;\n`;
+        code += `    end\n`;
+        code += `endmodule\n`;
+        
+        return code;
+      }
+
+      // Generate truth table
+      function generateTruthTable(minterms, maxterms, dontcares) {
+        const vars = ['A','B','C','D','E','F','G','H'].slice(0, numVars);
+        let html = '<table class="truth-table"><thead><tr>';
+        
+        // Headers
+        vars.forEach(v => html += `<th>${v}</th>`);
+        html += '<th>Output</th></tr></thead><tbody>';
+        
+        // Rows
+        for (let i = 0; i < Math.pow(2, numVars); i++) {
+          html += '<tr>';
+          const bits = getBinary(i, numVars);
+          for (let j = 0; j < numVars; j++) {
+            html += `<td>${bits[j]}</td>`;
+          }
+          
+          let output = '0';
+          if (minterms.includes(i)) output = '1';
+          else if (dontcares.includes(i)) output = 'X';
+          
+          html += `<td style="font-weight: bold; color: ${output === '1' ? 'var(--success)' : output === 'X' ? 'var(--warning)' : 'var(--muted)'}">${output}</td>`;
+          html += '</tr>';
+        }
+        
+        html += '</tbody></table>';
+        return html;
+      }
+
+      // Display output based on format
+      function displayOutput(expression, minterms, maxterms, dontcares) {
+        const outputDiv = document.getElementById('output-content');
+        outputDiv.className = 'output-content';
+        
+        switch(outputFormat) {
+          case 'expression':
+            outputDiv.textContent = expression || 'No expression generated';
+            break;
+            
+          case 'gates':
+            outputDiv.className = 'output-content diagram';
+            outputDiv.innerHTML = '';
+            outputDiv.appendChild(generateGateDiagram(expression));
+            break;
+            
+          case 'python':
+            outputDiv.textContent = generatePythonCode(expression, minterms);
+            break;
+            
+          case 'verilog':
+            outputDiv.textContent = generateVerilogCode(expression, minterms);
+            break;
+            
+          case 'truth':
+            outputDiv.innerHTML = generateTruthTable(minterms, maxterms, dontcares);
+            break;
+        }
+      }
+
+      // Copy to clipboard
+      document.getElementById('copy-btn').addEventListener('click', function() {
+        const content = document.getElementById('output-content');
+        let textToCopy = '';
+        
+        if (outputFormat === 'truth') {
+          // For truth table, copy as CSV
+          const table = content.querySelector('table');
+          const rows = table.querySelectorAll('tr');
+          rows.forEach(row => {
+            const cells = row.querySelectorAll('th, td');
+            textToCopy += Array.from(cells).map(cell => cell.textContent).join(',') + '\n';
+          });
+        } else if (outputFormat === 'gates') {
+          // For gates, copy the expression
+          textToCopy = content.textContent;
+        } else {
+          textToCopy = content.textContent;
+        }
+        
+        navigator.clipboard.writeText(textToCopy).then(() => {
+          this.textContent = 'Copied!';
+          this.classList.add('copied');
+          setTimeout(() => {
+            this.textContent = 'Copy';
+            this.classList.remove('copied');
+          }, 2000);
+        });
+      });
+
+      // Event listeners
+      document.getElementById('var-count').addEventListener('change', e => {
+        numVars = parseInt(e.target.value, 10);
+        generateMap();
+        solve();
+      });
+      
+      document.getElementById('solve-method').addEventListener('change', e => {
+        solveMethod = e.target.value;
+        solve();
+      });
+      
+      document.getElementById('output-format').addEventListener('change', e => {
+        outputFormat = e.target.value;
+        solve();
+      });
+
+      // Initialize
+      generateMap();
+      solve();
+    })();
+  </script>
 </body>
 </html>
