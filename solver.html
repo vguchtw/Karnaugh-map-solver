@@ -1,11 +1,10 @@
-
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Karnaugh Map Solver — Standalone Demo</title>
-  <meta name="description" content="Interactive Karnaugh Map (K‑map) solver with 2–6 variables, Gray code mapping, and Quine–McCluskey simplification.">
+  <meta name="description" content="Interactive Karnaugh Map (K-map) solver with 2–6 variables, Gray code mapping, and Quine–McCluskey simplification.">
   <meta name="robots" content="index,follow">
 
   <style>
@@ -99,7 +98,7 @@
     </header>
 
     <section class="hero card">
-      <p>Click cells to toggle 0/1. Use the selector to choose the number of variables (2–8). The simplified expression updates instantly.</p>
+      <p>Click cells to toggle 0/1. Use the selector to choose the number of variables (2–6). The simplified expression updates instantly.</p>
     </section>
 
     <section class="card" aria-label="Karnaugh Map Solver">
@@ -108,7 +107,7 @@
           .karnaugh-solver { font-family: Arial, sans-serif; margin: 20px; }
           .karnaugh-solver .instructions { font-size: 16px; margin-bottom: 20px; }
           .karnaugh-solver .settings { margin-bottom: 20px; text-align: center; }
-          .karnaugh-solver .settings select { font-size: 16px; padding: 5px; width: auto; max-width: 100px; }
+          .karnaugh-solver .settings select { font-size: 16px; padding: 5px; width: auto; max-width: 140px; }
           .karnaugh-solver table { width: 100%; max-width: 600px; margin: 0 auto; border-collapse: collapse; }
           .karnaugh-solver td {
             width: 40px; height: 40px; text-align: center; vertical-align: middle;
@@ -123,6 +122,13 @@
             .karnaugh-solver > *:not(.mobile-fallback) { display: none; }
             .karnaugh-solver .mobile-fallback { display: block; }
           }
+          .karnaugh-solver .settings .row { display:flex; gap: 10px; justify-content:center; flex-wrap: wrap; align-items:center; }
+          .karnaugh-solver .settings label { color: var(--muted); font-size: 14px; margin-right: 6px; }
+          .karnaugh-solver .settings .group { display:flex; align-items:center; gap: 6px; }
+          .karnaugh-solver .output-area { margin-top: 16px; }
+          .karnaugh-solver #diagram-container { display:none; margin-top: 12px; }
+          .karnaugh-solver #code-container { display:none; margin-top: 12px; }
+          .karnaugh-solver pre { background: #0f172a; color: #e5e7eb; padding: 12px; border-radius: 8px; overflow:auto; }
         </style>
 
         <div class="instructions">
@@ -130,28 +136,42 @@
         </div>
 
         <div class="settings">
-          <label for="var-count">Number of variables: </label>
-          <select id="var-count">
-            <option value="2">2×2</option>
-            <option value="3">2×4</option>
-            <option value="4" selected>4×4</option>
-            <option value="5">4×8</option>
-            <option value="6">8×8</option>
-          </select>
-
-          <!-- Added dropdown for output type -->
-          <span style="margin-left:24px"></span>
-          <label for="output-type">Output format: </label>
-          <select id="output-type">
-            <option value="expr" selected>Boolean Expression</option>
-            <option value="logic">Logic Gate Diagram</option>
-            <option value="pseudocode">Python Pseudocode</option>
-          </select>
+          <div class="row">
+            <div class="group">
+              <label for="var-count">Variables</label>
+              <select id="var-count">
+                <option value="2">2×2</option>
+                <option value="3">2×4</option>
+                <option value="4" selected>4×4</option>
+                <option value="5">4×8</option>
+                <option value="6">8×8</option>
+              </select>
+            </div>
+            <div class="group">
+              <label for="method">Form</label>
+              <select id="method">
+                <option value="SOP" selected>Σ (SOP)</option>
+                <option value="POS">Π (POS)</option>
+              </select>
+            </div>
+            <div class="group">
+              <label for="output-type">Output</label>
+              <select id="output-type">
+                <option value="text" selected>Text</option>
+                <option value="diagram">Logic gates (diagram)</option>
+                <option value="pseudocode">Python pseudocode</option>
+              </select>
+            </div>
+          </div>
         </div>
 
         <div id="kmap-container"></div>
 
-        <div class="result-area" id="result">Simplified expression will appear here.</div>
+        <div class="output-area">
+          <div class="result-area" id="result">Simplified expression will appear here.</div>
+          <div id="diagram-container"></div>
+          <div id="code-container"><pre id="code-output"></pre></div>
+        </div>
 
         <div class="mobile-fallback">
           This Karnaugh Map Solver requires a screen at least 768px wide. Please switch to a larger device or rotate your screen.
@@ -160,6 +180,8 @@
         <script>
           (function(){
             let numVars = 4;
+            let method = 'SOP';
+            let outputType = 'text';
             let kmap = [];
             let rowCodes = [];
             let colCodes = [];
@@ -251,6 +273,143 @@
               const vars = ['A','B','C','D','E','F'];
               return term.split('').map((b,i) => b === '1' ? vars[i] : b === '0' ? vars[i] + "'" : '').join('') || '1';
             }
+            function termToLiteralsSOP(term) {
+              const vars = ['A','B','C','D','E','F'];
+              const out = [];
+              term.split('').forEach((b,i) => {
+                if (b === '-') return;
+                out.push({ variable: vars[i], negated: b === '0' });
+              });
+              return out;
+            }
+            function termToClauseStringPOSFromComplementTerm(term) {
+              const vars = ['A','B','C','D','E','F'];
+              const lits = [];
+              term.split('').forEach((b,i) => {
+                if (b === '-') return;
+                // F' product bit 1 => A in product -> in F clause becomes A'
+                // F' product bit 0 => A' in product -> in F clause becomes A
+                lits.push(b === '1' ? vars[i] + "'" : vars[i]);
+              });
+              return lits.join(' + ') || '1';
+            }
+            function termToClauseLiteralsPOSFromComplementTerm(term) {
+              const vars = ['A','B','C','D','E','F'];
+              const out = [];
+              term.split('').forEach((b,i) => {
+                if (b === '-') return;
+                out.push({ variable: vars[i], negated: b === '1' });
+              });
+              return out;
+            }
+
+            function computeSOP(minterms) {
+              const total = Math.pow(2, numVars);
+              if (!minterms.length) return { type: 'const', value: '0', terms: [] };
+              if (minterms.length === total) return { type: 'const', value: '1', terms: [] };
+              const primes = findPrimeImplicants(minterms, numVars);
+              const sel = selectPrimeImplicants(primes, minterms);
+              const terms = sel.map(p => p.term);
+              const expr = terms.map(t => termToExpr(t)).join(' + ');
+              return { type: 'expr', value: expr, terms };
+            }
+
+            function computePOS(minterms) {
+              const total = Math.pow(2, numVars);
+              const mintermSet = new Set(minterms);
+              const zeros = [];
+              for (let i = 0; i < total; i++) if (!mintermSet.has(i)) zeros.push(i);
+              if (zeros.length === 0) return { type: 'const', value: '1', clauses: [] };
+              if (zeros.length === total) return { type: 'const', value: '0', clauses: [] };
+              const primes = findPrimeImplicants(zeros, numVars); // compute for F'
+              const sel = selectPrimeImplicants(primes, zeros);
+              const terms = sel.map(p => p.term);
+              const clauses = terms.map(t => '(' + termToClauseStringPOSFromComplementTerm(t) + ')');
+              const expr = clauses.join(' · ');
+              return { type: 'expr', value: expr, terms };
+            }
+
+            function renderExpressionText(text) {
+              const resultEl = document.getElementById('result');
+              resultEl.textContent = 'Simplified Expression: ' + text;
+            }
+
+            function renderLogicDiagram(kind, terms) {
+              const container = document.getElementById('diagram-container');
+              if (!terms || !terms.length) {
+                container.innerHTML = '';
+                return;
+              }
+              const gateLabel = kind === 'SOP' ? 'AND' : 'OR';
+              const finalLabel = kind === 'SOP' ? 'OR' : 'AND';
+              const width = 700;
+              const termCount = terms.length;
+              const rowH = 70;
+              const gateW = 80;
+              const gateH = 40;
+              const margin = 20;
+              const leftX = 60;
+              const rightX = width - gateW - 60;
+              const midY = margin + termCount * rowH / 2;
+              const height = margin * 2 + termCount * rowH;
+
+              let svg = '';
+              svg += `<svg viewBox="0 0 ${width} ${height}" width="100%" height="${height}" xmlns="http://www.w3.org/2000/svg" style="max-width: 760px; border:1px solid rgba(148,163,184,.35); border-radius: 8px; background: rgba(255,255,255,.04)">`;
+
+              for (let i = 0; i < termCount; i++) {
+                const y = margin + i * rowH + (rowH - gateH) / 2;
+                // input stub
+                svg += `<line x1="${leftX - 40}" y1="${y + gateH/2}" x2="${leftX}" y2="${y + gateH/2}" stroke="#94a3b8" stroke-width="2"/>`;
+                // term box
+                svg += `<rect x="${leftX}" y="${y}" width="${gateW}" height="${gateH}" rx="8" ry="8" fill="#111827" stroke="#94a3b8"/>`;
+                svg += `<text x="${leftX + gateW/2}" y="${y + gateH/2 + 5}" font-size="14" fill="#e5e7eb" text-anchor="middle" font-family="monospace">${gateLabel}</text>`;
+                // wire to final
+                svg += `<line x1="${leftX + gateW}" y1="${y + gateH/2}" x2="${rightX}" y2="${y + gateH/2}" stroke="#94a3b8" stroke-width="2"/>`;
+                // annotate literals
+                let litText = '';
+                if (kind === 'SOP') {
+                  litText = termToLiteralsSOP(terms[i]).map(l => l.negated ? l.variable + "'" : l.variable).join(' ');
+                } else {
+                  litText = termToClauseLiteralsPOSFromComplementTerm(terms[i]).map(l => l.negated ? l.variable + "'" : l.variable).join(' + ');
+                  litText = '(' + litText + ')';
+                }
+                svg += `<text x="${leftX + gateW/2}" y="${y - 6}" font-size="12" fill="#9ca3af" text-anchor="middle" font-family="monospace">${litText || (kind==='SOP'?'1':'(1)')}</text>`;
+              }
+
+              // final gate
+              const finalY = midY - gateH / 2;
+              svg += `<rect x="${rightX}" y="${finalY}" width="${gateW}" height="${gateH}" rx="8" ry="8" fill="#111827" stroke="#94a3b8"/>`;
+              svg += `<text x="${rightX + gateW/2}" y="${finalY + gateH/2 + 5}" font-size="14" fill="#e5e7eb" text-anchor="middle" font-family="monospace">${finalLabel}</text>`;
+              // output wire
+              svg += `<line x1="${rightX + gateW}" y1="${midY}" x2="${rightX + gateW + 60}" y2="${midY}" stroke="#94a3b8" stroke-width="2"/>`;
+              svg += `<text x="${rightX + gateW + 70}" y="${midY + 5}" font-size="14" fill="#e5e7eb" font-family="monospace">F</text>`;
+
+              svg += `</svg>`;
+              container.innerHTML = svg;
+            }
+
+            function renderPythonPseudocode(kind, terms) {
+              const codeEl = document.getElementById('code-output');
+              const vars = ['A','B','C','D','E','F'].slice(0, numVars);
+              if (!terms || terms.length === 0) { codeEl.textContent = ''; return; }
+
+              let code = `def f(${vars.join(', ')}):\n`;
+              if (kind === 'SOP') {
+                const parts = terms.map(t => {
+                  const lits = termToLiteralsSOP(t).map(l => l.negated ? `not ${l.variable}` : l.variable);
+                  return '(' + (lits.join(' and ') || 'True') + ')';
+                });
+                code += `    return ${parts.join(' or ')}\n`;
+              } else { // POS
+                const parts = terms.map(t => {
+                  const pyLits = termToClauseLiteralsPOSFromComplementTerm(t).map(l => l.negated ? `not ${l.variable}` : l.variable);
+                  return '(' + (pyLits.join(' or ') || 'True') + ')';
+                });
+                code += `    return ${parts.join(' and ')}\n`;
+              }
+              codeEl.textContent = code;
+            }
+
             function solve() {
               const minterms = [];
               for (let r = 0; r < rowCodes.length; r++) {
@@ -261,86 +420,64 @@
                   }
                 }
               }
-              const total = Math.pow(2, numVars);
-              let result;
-              if (!minterms.length) result = '0';
-              else if (minterms.length === total) result = '1';
-              else {
-                const primes = findPrimeImplicants(minterms, numVars);
-                const sel = selectPrimeImplicants(primes, minterms);
-                result = sel.map(p => termToExpr(p.term)).join(' + ');
-              }
-              lastExpr = result;
-              renderOutput(result);
-            }
 
-            // Convert a single term like AB'C to array of literals ["A", "not B", "C"]
-            function parseTermLiterals(term){
-              const lits=[];
-              for(let i=0;i<term.length;i++){
-                const ch=term[i];
-                if(ch>='A' && ch<='Z'){
-                  if(term[i+1]==="'"){
-                    lits.push('not '+ch);
-                    i++; // skip prime
-                  }else{
-                    lits.push(ch);
-                  }
+              let resultObj = (method === 'SOP') ? computeSOP(minterms) : computePOS(minterms);
+
+              const resultEl = document.getElementById('result');
+              const diagramEl = document.getElementById('diagram-container');
+              const codeWrapEl = document.getElementById('code-container');
+
+              // toggle displays
+              resultEl.style.display   = (outputType === 'text') ? 'block' : 'none';
+              diagramEl.style.display  = (outputType === 'diagram') ? 'block' : 'none';
+              codeWrapEl.style.display = (outputType === 'pseudocode') ? 'block' : 'none';
+
+              if (resultObj.type === 'const') {
+                const constText = resultObj.value;
+                renderExpressionText(constText);
+                if (outputType === 'diagram') {
+                  const container = document.getElementById('diagram-container');
+                  container.innerHTML = `<svg viewBox="0 0 300 80" width="100%" height="80" xmlns="http://www.w3.org/2000/svg" style="max-width: 760px; border:1px solid rgba(148,163,184,.35); border-radius: 8px; background: rgba(255,255,255,.04)">
+                    <text x="20" y="45" font-size="16" fill="#e5e7eb" font-family="monospace">F = ${constText}</text>
+                  </svg>`;
+                } else if (outputType === 'pseudocode') {
+                  const vars = ['A','B','C','D','E','F'].slice(0, numVars);
+                  const code = `def f(${vars.join(', ')}):\n    return ${constText === '1' ? 'True' : 'False'}\n`;
+                  document.getElementById('code-output').textContent = code;
                 }
+                return;
               }
-              return lits;
-            }
 
-            function exprToPython(expr){
-              if(expr==='0' || expr==='1') return expr;
-              const terms=expr.split(' + ').filter(Boolean);
-              const pyTerms=terms.map(t=>`(${parseTermLiterals(t).join(' and ')})`);
-              return pyTerms.join(' or ');
-            }
+              // expression text
+              renderExpressionText(resultObj.value);
 
-            function exprToLogicDiagram(expr){
-              if(expr==='0' || expr==='1') return expr;
-              const terms=expr.split(' + ').filter(Boolean);
-              const lines=[];
-              terms.forEach((t,idx)=>{
-                const name='AND'+(idx+1);
-                const lits=parseTermLiterals(t).map(l=>l.replace('not ','¬'));
-                lines.push(`${name} = AND(${lits.join(', ')})`);
-              });
-              const andNames=terms.map((_,idx)=>'AND'+(idx+1));
-              lines.push(`OUTPUT = OR(${andNames.join(', ')})`);
-              return lines.join('\n');
-            }
+              // diagram
+              if (outputType === 'diagram') {
+                renderLogicDiagram(method, resultObj.terms);
+              }
 
-            function renderOutput(expr){
-              const mode=outputMode;
-              const resElem=document.getElementById('result');
-              if(mode==='expr'){
-                resElem.textContent='Simplified Expression: '+expr;
-              }else if(mode==='pseudocode'){
-                resElem.innerHTML='<pre style="text-align:left">'+
-                    '# Python pseudocode\nresult = '+exprToPython(expr)+
-                    '</pre>';
-              }else if(mode==='logic'){
-                resElem.innerHTML='<pre style="text-align:left">'+exprToLogicDiagram(expr)+'</pre>';
+              // pseudocode
+              if (outputType === 'pseudocode') {
+                renderPythonPseudocode(method, resultObj.terms);
               }
             }
 
-            let outputMode='expr';
-            let lastExpr='';
-
-            document.getElementById('output-type').addEventListener('change',e=>{
-              outputMode=e.target.value;
-              // Re-render with current simplified expression
-              renderOutput(lastExpr);
-            });
-
+            // UI bindings
             document.getElementById('var-count').addEventListener('change', e => {
               numVars = parseInt(e.target.value, 10);
               generateMap();
               solve();
             });
+            document.getElementById('method').addEventListener('change', e => {
+              method = e.target.value;
+              solve();
+            });
+            document.getElementById('output-type').addEventListener('change', e => {
+              outputType = e.target.value;
+              solve();
+            });
 
+            // init
             generateMap();
             solve();
           })();
