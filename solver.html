@@ -138,6 +138,15 @@
             <option value="5">4×8</option>
             <option value="6">8×8</option>
           </select>
+
+          <!-- Added dropdown for output type -->
+          <span style="margin-left:24px"></span>
+          <label for="output-type">Output format: </label>
+          <select id="output-type">
+            <option value="expr" selected>Boolean Expression</option>
+            <option value="logic">Logic Gate Diagram</option>
+            <option value="pseudocode">Python Pseudocode</option>
+          </select>
         </div>
 
         <div id="kmap-container"></div>
@@ -261,8 +270,70 @@
                 const sel = selectPrimeImplicants(primes, minterms);
                 result = sel.map(p => termToExpr(p.term)).join(' + ');
               }
-              document.getElementById('result').textContent = 'Simplified Expression: ' + result;
+              lastExpr = result;
+              renderOutput(result);
             }
+
+            // Convert a single term like AB'C to array of literals ["A", "not B", "C"]
+            function parseTermLiterals(term){
+              const lits=[];
+              for(let i=0;i<term.length;i++){
+                const ch=term[i];
+                if(ch>='A' && ch<='Z'){
+                  if(term[i+1]==="'"){
+                    lits.push('not '+ch);
+                    i++; // skip prime
+                  }else{
+                    lits.push(ch);
+                  }
+                }
+              }
+              return lits;
+            }
+
+            function exprToPython(expr){
+              if(expr==='0' || expr==='1') return expr;
+              const terms=expr.split(' + ').filter(Boolean);
+              const pyTerms=terms.map(t=>`(${parseTermLiterals(t).join(' and ')})`);
+              return pyTerms.join(' or ');
+            }
+
+            function exprToLogicDiagram(expr){
+              if(expr==='0' || expr==='1') return expr;
+              const terms=expr.split(' + ').filter(Boolean);
+              const lines=[];
+              terms.forEach((t,idx)=>{
+                const name='AND'+(idx+1);
+                const lits=parseTermLiterals(t).map(l=>l.replace('not ','¬'));
+                lines.push(`${name} = AND(${lits.join(', ')})`);
+              });
+              const andNames=terms.map((_,idx)=>'AND'+(idx+1));
+              lines.push(`OUTPUT = OR(${andNames.join(', ')})`);
+              return lines.join('\n');
+            }
+
+            function renderOutput(expr){
+              const mode=outputMode;
+              const resElem=document.getElementById('result');
+              if(mode==='expr'){
+                resElem.textContent='Simplified Expression: '+expr;
+              }else if(mode==='pseudocode'){
+                resElem.innerHTML='<pre style="text-align:left">'+
+                    '# Python pseudocode\nresult = '+exprToPython(expr)+
+                    '</pre>';
+              }else if(mode==='logic'){
+                resElem.innerHTML='<pre style="text-align:left">'+exprToLogicDiagram(expr)+'</pre>';
+              }
+            }
+
+            let outputMode='expr';
+            let lastExpr='';
+
+            document.getElementById('output-type').addEventListener('change',e=>{
+              outputMode=e.target.value;
+              // Re-render with current simplified expression
+              renderOutput(lastExpr);
+            });
 
             document.getElementById('var-count').addEventListener('change', e => {
               numVars = parseInt(e.target.value, 10);
