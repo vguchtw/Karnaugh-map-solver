@@ -108,7 +108,7 @@
           .karnaugh-solver { font-family: Arial, sans-serif; margin: 20px; }
           .karnaugh-solver .instructions { font-size: 16px; margin-bottom: 20px; }
           .karnaugh-solver .settings { margin-bottom: 20px; text-align: center; }
-          .karnaugh-solver .settings select { font-size: 16px; padding: 5px; width: auto; max-width: 100px; }
+          .karnaugh-solver .settings select { font-size: 16px; padding: 5px; width: auto; max-width: 220px; }
           .karnaugh-solver table { width: 100%; max-width: 600px; margin: 0 auto; border-collapse: collapse; }
           .karnaugh-solver td {
             width: 40px; height: 40px; text-align: center; vertical-align: middle;
@@ -138,6 +138,19 @@
             <option value="5">4×8</option>
             <option value="6">8×8</option>
           </select>
+          &nbsp;&nbsp;&nbsp;
+          <label for="form-select">Boolean form: </label>
+          <select id="form-select">
+            <option value="sop" selected>Sum of Products (SOP)</option>
+            <option value="pos">Product of Sums (POS)</option>
+          </select>
+          &nbsp;&nbsp;&nbsp;
+          <label for="output-select">Output: </label>
+          <select id="output-select">
+            <option value="text" selected>Text expression</option>
+            <option value="gate">Logic gate diagram</option>
+            <option value="python">Python pseudocode</option>
+          </select>
         </div>
 
         <div id="kmap-container"></div>
@@ -154,6 +167,9 @@
             let kmap = [];
             let rowCodes = [];
             let colCodes = [];
+            const VARS = ['A','B','C','D','E','F'];
+            let selectedForm = 'sop';
+            let selectedOutput = 'text';
 
             function grayCode(n) {
               if (n === 0) return [''];
@@ -239,34 +255,169 @@
               return selected.map(i => primes[i]);
             }
             function termToExpr(term) {
-              const vars = ['A','B','C','D','E','F'];
-              return term.split('').map((b,i) => b === '1' ? vars[i] : b === '0' ? vars[i] + "'" : '').join('') || '1';
+              return term.split('').map((b,i) => b === '1' ? VARS[i] : b === '0' ? VARS[i] + "'" : '').join('') || '1';
             }
-            function solve() {
-              const minterms = [];
+            function getOnesIndices() {
+              const ones = [];
               for (let r = 0; r < rowCodes.length; r++) {
                 for (let c = 0; c < colCodes.length; c++) {
                   if (kmap[r][c]) {
                     const bits = rowCodes[r] + colCodes[c];
-                    minterms.push(parseInt(bits, 2));
+                    ones.push(parseInt(bits, 2));
                   }
                 }
               }
-              const total = Math.pow(2, numVars);
-              let result;
-              if (!minterms.length) result = '0';
-              else if (minterms.length === total) result = '1';
-              else {
-                const primes = findPrimeImplicants(minterms, numVars);
-                const sel = selectPrimeImplicants(primes, minterms);
-                result = sel.map(p => termToExpr(p.term)).join(' + ');
+              return ones;
+            }
+            function getZerosIndices(total) {
+              const ones = new Set(getOnesIndices());
+              const zeros = [];
+              for (let i = 0; i < total; i++) if (!ones.has(i)) zeros.push(i);
+              return zeros;
+            }
+            function patternToLiterals(pattern, mode) {
+              const literals = [];
+              for (let i = 0; i < pattern.length; i++) {
+                const bit = pattern[i];
+                if (bit === '-') continue;
+                if (mode === 'sop') {
+                  literals.push({ var: VARS[i], negated: bit === '0' });
+                } else {
+                  literals.push({ var: VARS[i], negated: bit === '1' });
+                }
               }
-              document.getElementById('result').textContent = 'Simplified Expression: ' + result;
+              return literals;
+            }
+            function literalsToText(literals, mode) {
+              if (mode === 'sop') {
+                return literals.map(l => l.var + (l.negated ? "'" : '')).join('') || '1';
+              }
+              return '(' + (literals.map(l => l.var + (l.negated ? "'" : '')).join(' + ') || '1') + ')';
+            }
+            function generatePythonCode(clauses, mode) {
+              const args = VARS.slice(0, numVars).join(', ');
+              let body;
+              if (clauses === 'CONST_0') {
+                body = 'return False';
+              } else if (clauses === 'CONST_1') {
+                body = 'return True';
+              } else if (mode === 'sop') {
+                const parts = clauses.map(group => group.map(l => (l.negated ? 'not ' : '') + l.var).join(' and '));
+                body = 'return ' + (parts.length ? '(' + parts.join(') or (') + ')' : 'False');
+              } else {
+                const parts = clauses.map(group => group.map(l => (l.negated ? 'not ' : '') + l.var).join(' or '));
+                body = 'return ' + (parts.length ? '(' + parts.map(p => '(' + p + ')').join(' and ') + ')' : 'True');
+              }
+              return 'def F(' + args + '):\n    ' + body + '\n';
+            }
+            function renderGateDiagram(clauses, mode, exprStr) {
+              const resultEl = document.getElementById('result');
+              if (clauses === 'CONST_0' || clauses === 'CONST_1') {
+                resultEl.textContent = 'Simplified Expression: ' + (clauses === 'CONST_1' ? '1' : '0');
+                return;
+              }
+              const varCount = numVars;
+              const usedVars = VARS.slice(0, varCount);
+              const width = 760;
+              const varGapY = 28;
+              const varStartY = 30;
+              const varYs = usedVars.map((_, i) => varStartY + i * varGapY);
+              const stageGapY = 70;
+              const gateYs = clauses.map((_, i) => 60 + i * stageGapY);
+              const height = Math.max(varYs[varYs.length - 1] + 60, (clauses.length - 1) * stageGapY + 140);
+              const inputLineX1 = 50, inputLineX2 = 210;
+              const gateX = 280;
+              const aggregatorX = 480;
+              const outputX = 720;
+              const gateLabel = mode === 'sop' ? 'AND' : 'OR';
+              const aggregatorLabel = mode === 'sop' ? 'OR' : 'AND';
+              let svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + width + '" height="' + height + '" viewBox="0 0 ' + width + ' ' + height + '" style="max-width:100%;">';
+              svg += '<rect x="0" y="0" width="' + width + '" height="' + height + '" fill="transparent"/>';
+              usedVars.forEach((v, i) => {
+                const y = varYs[i];
+                svg += '<text x="18" y="' + (y + 4) + '" font-size="12" fill="currentColor">' + v + '</text>';
+                svg += '<line x1="' + inputLineX1 + '" y1="' + y + '" x2="' + inputLineX2 + '" y2="' + y + '" stroke="currentColor" stroke-width="2"/>';
+              });
+              clauses.forEach((group, gi) => {
+                const y = gateYs[gi];
+                svg += '<rect x="' + (gateX - 22) + '" y="' + (y - 16) + '" width="44" height="32" rx="6" ry="6" fill="none" stroke="currentColor" stroke-width="2"/>';
+                svg += '<text x="' + (gateX - 16) + '" y="' + (y + 4) + '" font-size="10" fill="currentColor">' + gateLabel + '</text>';
+                svg += '<line x1="' + (gateX + 22) + '" y1="' + y + '" x2="' + (aggregatorX - 22) + '" y2="' + y + '" stroke="currentColor" stroke-width="2"/>';
+                group.forEach(lit => {
+                  const idx = usedVars.indexOf(lit.var);
+                  const vy = varYs[idx];
+                  svg += '<line x1="' + inputLineX2 + '" y1="' + vy + '" x2="' + (gateX - 22) + '" y2="' + y + '" stroke="currentColor" stroke-width="1.5"/>';
+                  if (lit.negated) {
+                    svg += '<circle cx="' + (gateX - 28) + '" cy="' + (y + (vy - y) * 0.5) + '" r="4" fill="white" stroke="currentColor" stroke-width="1.5"/>';
+                  }
+                });
+              });
+              const aggY = clauses.length ? gateYs[Math.floor((clauses.length - 1) / 2)] : 60;
+              svg += '<rect x="' + (aggregatorX - 22) + '" y="' + (aggY - 16) + '" width="44" height="32" rx="6" ry="6" fill="none" stroke="currentColor" stroke-width="2"/>';
+              svg += '<text x="' + (aggregatorX - 17) + '" y="' + (aggY + 4) + '" font-size="10" fill="currentColor">' + aggregatorLabel + '</text>';
+              clauses.forEach((_, gi) => {
+                const y = gateYs[gi];
+                svg += '<line x1="' + (aggregatorX - 22) + '" y1="' + y + '" x2="' + (aggregatorX - 22) + '" y2="' + aggY + '" stroke="currentColor" stroke-width="1" opacity="0.6"/>';
+              });
+              svg += '<line x1="' + (aggregatorX + 22) + '" y1="' + aggY + '" x2="' + outputX + '" y2="' + aggY + '" stroke="currentColor" stroke-width="2"/>';
+              svg += '<text x="' + (outputX + 6) + '" y="' + (aggY + 4) + '" font-size="12" fill="currentColor">F</text>';
+              svg += '</svg>';
+              resultEl.innerHTML = '<div class="note">' + exprStr + '</div>' + svg;
+            }
+            function solve() {
+              const resultEl = document.getElementById('result');
+              const ones = getOnesIndices();
+              const total = Math.pow(2, numVars);
+              let expr = '';
+              let clauses = [];
+              let constant = null;
+              if (ones.length === 0) {
+                constant = 'CONST_0';
+              } else if (ones.length === total) {
+                constant = 'CONST_1';
+              } else if (selectedForm === 'sop') {
+                const primes = findPrimeImplicants(ones, numVars);
+                const sel = selectPrimeImplicants(primes, ones);
+                clauses = sel.map(p => patternToLiterals(p.term, 'sop'));
+                expr = sel.map(p => termToExpr(p.term)).join(' + ');
+              } else {
+                const zeros = getZerosIndices(total);
+                if (zeros.length === 0) {
+                  constant = 'CONST_1';
+                } else if (zeros.length === total) {
+                  constant = 'CONST_0';
+                } else {
+                  const primesZ = findPrimeImplicants(zeros, numVars);
+                  const selZ = selectPrimeImplicants(primesZ, zeros);
+                  clauses = selZ.map(p => patternToLiterals(p.term, 'pos'));
+                  expr = selZ.map(p => literalsToText(patternToLiterals(p.term, 'pos'), 'pos')).join(' · ');
+                }
+              }
+              const label = selectedForm === 'sop' ? 'SOP' : 'POS';
+              if (selectedOutput === 'text') {
+                if (constant === 'CONST_0') resultEl.textContent = 'Simplified Expression (' + label + '): 0';
+                else if (constant === 'CONST_1') resultEl.textContent = 'Simplified Expression (' + label + '): 1';
+                else resultEl.textContent = 'Simplified Expression (' + label + '): ' + expr;
+              } else if (selectedOutput === 'python') {
+                const code = generatePythonCode(constant ? constant : clauses, selectedForm);
+                resultEl.innerHTML = '<div class="note">Python pseudocode</div><pre>' + code + '</pre>';
+              } else if (selectedOutput === 'gate') {
+                const caption = 'Expression (' + label + '): ' + (constant === 'CONST_0' ? '0' : constant === 'CONST_1' ? '1' : expr);
+                renderGateDiagram(constant ? constant : clauses, selectedForm, caption);
+              }
             }
 
             document.getElementById('var-count').addEventListener('change', e => {
               numVars = parseInt(e.target.value, 10);
               generateMap();
+              solve();
+            });
+            document.getElementById('form-select').addEventListener('change', e => {
+              selectedForm = e.target.value;
+              solve();
+            });
+            document.getElementById('output-select').addEventListener('change', e => {
+              selectedOutput = e.target.value;
               solve();
             });
 
