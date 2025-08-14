@@ -1,0 +1,282 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Karnaugh Map Solver — Standalone Demo</title>
+  <meta name="description" content="Interactive Karnaugh Map (K‑map) solver with 2–6 variables, Gray code mapping, and Quine–McCluskey simplification.">
+  <meta name="robots" content="index,follow">
+
+  <style>
+    :root{
+      --bg: #0f172a;
+      --panel: #111827;
+      --card: #ffffff;
+      --text: #0b1220;
+      --accent: #2563eb;
+      --muted: #6b7280;
+      --ring: rgba(37, 99, 235, .35);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root{
+        --bg: #0b1220;
+        --panel: #0f172a;
+        --card: #111827;
+        --text: #e5e7eb;
+        --accent: #60a5fa;
+        --muted: #9ca3af;
+        --ring: rgba(96, 165, 250, .35);
+      }
+    }
+    * { box-sizing: border-box }
+    html, body { height: 100% }
+    body{
+      margin:0;
+      background: radial-gradient(1200px 600px at 10% -10%, rgba(96,165,250,.08), transparent 60%),
+                  radial-gradient(1200px 600px at 110% 10%, rgba(34,197,94,.06), transparent 60%),
+                  var(--bg);
+      color: var(--text);
+      font: 16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+    }
+    .wrap{ max-width: 1100px; margin: 0 auto; padding: 24px; }
+
+    header.site{
+      display:flex; align-items:center; justify-content:space-between;
+      gap: 12px; padding: 14px 0 22px;
+    }
+    .brand{ display:flex; align-items:center; gap:12px; }
+    .logo{
+      width:38px; height:38px; border-radius:10px;
+      display:grid; place-items:center;
+      background: linear-gradient(135deg, rgba(37,99,235,.25), rgba(99,102,241,.25));
+      border: 1px solid rgba(148,163,184,.2);
+      box-shadow: 0 6px 30px rgba(37,99,235,.15), inset 0 0 0 1px rgba(255,255,255,.05);
+      color:#fff; font-weight:800;
+    }
+
+    .title{
+      font-size: clamp(20px, 2.5vw, 28px);
+      font-weight: 800; letter-spacing:.2px;
+      color: var(--muted);
+    }
+    .subtitle{
+      color: var(--muted);
+      font-size: 14px;
+      margin-top: 2px;
+    }
+
+    .hero{
+      margin: 6px 0 20px;
+      padding: 18px 18px;
+      border-radius: 16px;
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,0));
+      border: 1px solid rgba(148,163,184,.25);
+    }
+    .hero p{ margin: 0.4rem 0; color: var(--muted) }
+
+    .card{
+      background: var(--card);
+      color: var(--text);
+      border-radius: 14px;
+      padding: 18px;
+      border: 1px solid rgba(148,163,184,.35);
+      box-shadow: 0 20px 60px rgba(2,6,23,.25);
+    }
+
+    .note{ font-size: 13px; color: var(--muted); margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="site">
+      <div class="brand">
+        <div class="logo">K</div>
+        <div>
+          <div class="title">Karnaugh Map Solver</div>
+        </div>
+      </div>
+    </header>
+
+    <section class="hero card">
+      <p>Click cells to toggle 0/1. Use the selector to choose the number of variables (2–8). The simplified expression updates instantly.</p>
+    </section>
+
+    <section class="card" aria-label="Karnaugh Map Solver">
+      <div class="karnaugh-solver">
+        <style>
+          .karnaugh-solver { font-family: Arial, sans-serif; margin: 20px; }
+          .karnaugh-solver .instructions { font-size: 16px; margin-bottom: 20px; }
+          .karnaugh-solver .settings { margin-bottom: 20px; text-align: center; }
+          .karnaugh-solver .settings select { font-size: 16px; padding: 5px; width: auto; max-width: 100px; }
+          .karnaugh-solver table { width: 100%; max-width: 600px; margin: 0 auto; border-collapse: collapse; }
+          .karnaugh-solver td {
+            width: 40px; height: 40px; text-align: center; vertical-align: middle;
+            border: 1px solid #333; font-size: 18px; user-select: none; cursor: pointer;
+          }
+          .karnaugh-solver td.active { background-color: #aaf; }
+          .karnaugh-solver .result-area { text-align: center; font-weight: bold; margin-top: 20px; }
+          .karnaugh-solver .mobile-fallback {
+            display: none; padding: 20px; background: #fee; text-align: center; font-size: 16px; border: 1px solid #f00;
+          }
+          @media (max-width: 767px) {
+            .karnaugh-solver > *:not(.mobile-fallback) { display: none; }
+            .karnaugh-solver .mobile-fallback { display: block; }
+          }
+        </style>
+
+        <div class="instructions">
+          Tap a cell to toggle between 0 and 1; the simplified expression updates automatically.
+        </div>
+
+        <div class="settings">
+          <label for="var-count">Number of variables: </label>
+          <select id="var-count">
+            <option value="2">2×2</option>
+            <option value="3">2×4</option>
+            <option value="4" selected>4×4</option>
+            <option value="5">4×8</option>
+            <option value="6">8×8</option>
+          </select>
+        </div>
+
+        <div id="kmap-container"></div>
+
+        <div class="result-area" id="result">Simplified expression will appear here.</div>
+
+        <div class="mobile-fallback">
+          This Karnaugh Map Solver requires a screen at least 768px wide. Please switch to a larger device or rotate your screen.
+        </div>
+
+        <script>
+          (function(){
+            let numVars = 4;
+            let kmap = [];
+            let rowCodes = [];
+            let colCodes = [];
+
+            function grayCode(n) {
+              if (n === 0) return [''];
+              const prev = grayCode(n - 1);
+              return prev.map(c => '0' + c).concat(prev.slice().reverse().map(c => '1' + c));
+            }
+
+            function generateMap() {
+              const rows = Math.pow(2, Math.floor(numVars / 2));
+              const cols = Math.pow(2, Math.ceil(numVars / 2));
+              rowCodes = grayCode(Math.floor(numVars / 2));
+              colCodes = grayCode(Math.ceil(numVars / 2));
+
+              kmap = Array.from({ length: rows }, () => Array(cols).fill(0));
+              const table = document.createElement('table');
+              for (let r = 0; r < rows; r++) {
+                const tr = document.createElement('tr');
+                for (let c = 0; c < cols; c++) {
+                  const td = document.createElement('td');
+                  td.textContent = '0';
+                  td.addEventListener('click', () => {
+                    kmap[r][c] ^= 1;
+                    td.textContent = kmap[r][c];
+                    td.classList.toggle('active', kmap[r][c] === 1);
+                    solve();
+                  });
+                  tr.appendChild(td);
+                }
+                table.appendChild(tr);
+              }
+              const container = document.getElementById('kmap-container');
+              container.innerHTML = '';
+              container.appendChild(table);
+            }
+
+            function getBinary(num, len) {
+              let s = num.toString(2);
+              return '0'.repeat(len - s.length) + s;
+            }
+            function combineTerms(a, b) {
+              let diff = 0, out = '';
+              for (let i = 0; i < a.length; i++) {
+                if (a[i] === b[i]) out += a[i];
+                else { if (a[i] === '-' || b[i] === '-') return null; diff++; out += '-'; }
+              }
+              return diff === 1 ? out : null;
+            }
+            function findPrimeImplicants(minterms, vars) {
+              let terms = minterms.map(m => ({ term: getBinary(m, vars), minterms: [m], used: false }));
+              let primes = [];
+              while (terms.length) {
+                const next = [];
+                terms.forEach((t, i) => terms.slice(i+1).forEach(u => {
+                  const c = combineTerms(t.term, u.term);
+                  if (c) {
+                    t.used = u.used = true;
+                    if (!next.some(x => x.term === c)) next.push({ term: c, minterms: [...new Set([...t.minterms, ...u.minterms])], used: false });
+                  }
+                }));
+                terms.forEach(t => { if (!t.used) primes.push(t); });
+                terms = next;
+              }
+              return primes;
+            }
+            function selectPrimeImplicants(primes, minterms) {
+              const chart = {};
+              minterms.forEach(m => chart[m] = primes.reduce((arr,p,i) => p.minterms.includes(m) ? arr.concat(i) : arr, []));
+              const essential = new Set(Object.values(chart).filter(c => c.length === 1).map(c => c[0]));
+              let covered = new Set(); essential.forEach(i => primes[i].minterms.forEach(m => covered.add(m)));
+              let selected = [...essential]; let rem = minterms.filter(m => !covered.has(m));
+              while (rem.length) {
+                let best = -1, bestCount = 0;
+                primes.forEach((p,i) => {
+                  if (selected.includes(i)) return;
+                  const count = p.minterms.filter(m => rem.includes(m)).length;
+                  if (count > bestCount) { bestCount = count; best = i; }
+                });
+                if (best < 0) break;
+                selected.push(best);
+                primes[best].minterms.forEach(m => covered.add(m));
+                rem = minterms.filter(m => !covered.has(m));
+              }
+              return selected.map(i => primes[i]);
+            }
+            function termToExpr(term) {
+              const vars = ['A','B','C','D','E','F'];
+              return term.split('').map((b,i) => b === '1' ? vars[i] : b === '0' ? vars[i] + "'" : '').join('') || '1';
+            }
+            function solve() {
+              const minterms = [];
+              for (let r = 0; r < rowCodes.length; r++) {
+                for (let c = 0; c < colCodes.length; c++) {
+                  if (kmap[r][c]) {
+                    const bits = rowCodes[r] + colCodes[c];
+                    minterms.push(parseInt(bits, 2));
+                  }
+                }
+              }
+              const total = Math.pow(2, numVars);
+              let result;
+              if (!minterms.length) result = '0';
+              else if (minterms.length === total) result = '1';
+              else {
+                const primes = findPrimeImplicants(minterms, numVars);
+                const sel = selectPrimeImplicants(primes, minterms);
+                result = sel.map(p => termToExpr(p.term)).join(' + ');
+              }
+              document.getElementById('result').textContent = 'Simplified Expression: ' + result;
+            }
+
+            document.getElementById('var-count').addEventListener('change', e => {
+              numVars = parseInt(e.target.value, 10);
+              generateMap();
+              solve();
+            });
+
+            generateMap();
+            solve();
+          })();
+        </script>
+      </div>
+    </section>
+
+  </div>
+</body>
+</html>
