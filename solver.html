@@ -1,11 +1,10 @@
-
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Karnaugh Map Solver — Standalone Demo</title>
-  <meta name="description" content="Interactive Karnaugh Map (K‑map) solver with 2–6 variables, Gray code mapping, and Quine–McCluskey simplification.">
+  <meta name="description" content="Interactive Karnaugh Map (K-map) solver with 2–6 variables, Gray code mapping, and Quine–McCluskey simplification.">
   <meta name="robots" content="index,follow">
 
   <style>
@@ -99,7 +98,7 @@
     </header>
 
     <section class="hero card">
-      <p>Click cells to toggle 0/1. Use the selector to choose the number of variables (2–8). The simplified expression updates instantly.</p>
+      <p>Click cells to toggle 0/1. Use the selector to choose the number of variables (2–6). The simplified expression updates instantly.</p>
     </section>
 
     <section class="card" aria-label="Karnaugh Map Solver">
@@ -108,7 +107,7 @@
           .karnaugh-solver { font-family: Arial, sans-serif; margin: 20px; }
           .karnaugh-solver .instructions { font-size: 16px; margin-bottom: 20px; }
           .karnaugh-solver .settings { margin-bottom: 20px; text-align: center; }
-          .karnaugh-solver .settings select { font-size: 16px; padding: 5px; width: auto; max-width: 100px; }
+          .karnaugh-solver .settings select { font-size: 16px; padding: 5px; width: auto; max-width: 140px; }
           .karnaugh-solver table { width: 100%; max-width: 600px; margin: 0 auto; border-collapse: collapse; }
           .karnaugh-solver td {
             width: 40px; height: 40px; text-align: center; vertical-align: middle;
@@ -123,7 +122,6 @@
             .karnaugh-solver > *:not(.mobile-fallback) { display: none; }
             .karnaugh-solver .mobile-fallback { display: block; }
           }
-          /* new small tweaks */
           .karnaugh-solver .settings .row { display:flex; gap: 10px; justify-content:center; flex-wrap: wrap; align-items:center; }
           .karnaugh-solver .settings label { color: var(--muted); font-size: 14px; margin-right: 6px; }
           .karnaugh-solver .settings .group { display:flex; align-items:center; gap: 6px; }
@@ -286,10 +284,11 @@
             }
             function termToClauseStringPOSFromComplementTerm(term) {
               const vars = ['A','B','C','D','E','F'];
-              // For F' term bit: 1 -> A in product => in F clause becomes A' ; 0 -> A' in product => in F clause becomes A
               const lits = [];
               term.split('').forEach((b,i) => {
                 if (b === '-') return;
+                // F' product bit 1 => A in product -> in F clause becomes A'
+                // F' product bit 0 => A' in product -> in F clause becomes A
                 lits.push(b === '1' ? vars[i] + "'" : vars[i]);
               });
               return lits.join(' + ') || '1';
@@ -392,13 +391,9 @@
             function renderPythonPseudocode(kind, terms) {
               const codeEl = document.getElementById('code-output');
               const vars = ['A','B','C','D','E','F'].slice(0, numVars);
-              let code = '';
-              if (!terms || terms.length === 0) {
-                // constant handled outside
-                codeEl.textContent = '';
-                return;
-              }
-              code += `def f(${vars.join(', ')}):\n`;
+              if (!terms || terms.length === 0) { codeEl.textContent = ''; return; }
+
+              let code = `def f(${vars.join(', ')}):\n`;
               if (kind === 'SOP') {
                 const parts = terms.map(t => {
                   const lits = termToLiteralsSOP(t).map(l => l.negated ? `not ${l.variable}` : l.variable);
@@ -407,8 +402,6 @@
                 code += `    return ${parts.join(' or ')}\n`;
               } else { // POS
                 const parts = terms.map(t => {
-                  const lits = termToClauseLiteralsPOSFromComplementTerm(t).map(l => l.negated ? `${l.variable}` + "'" : l.variable);
-                  // For Python, use not for negation
                   const pyLits = termToClauseLiteralsPOSFromComplementTerm(t).map(l => l.negated ? `not ${l.variable}` : l.variable);
                   return '(' + (pyLits.join(' or ') || 'True') + ')';
                 });
@@ -428,24 +421,21 @@
                 }
               }
 
-              let resultObj;
-              if (method === 'SOP') resultObj = computeSOP(minterms);
-              else resultObj = computePOS(minterms);
+              let resultObj = (method === 'SOP') ? computeSOP(minterms) : computePOS(minterms);
 
               const resultEl = document.getElementById('result');
               const diagramEl = document.getElementById('diagram-container');
               const codeWrapEl = document.getElementById('code-container');
 
               // toggle displays
-              resultEl.style.display = (outputType === 'text') ? 'block' : 'none';
-              diagramEl.style.display = (outputType === 'diagram') ? 'block' : 'none';
+              resultEl.style.display   = (outputType === 'text') ? 'block' : 'none';
+              diagramEl.style.display  = (outputType === 'diagram') ? 'block' : 'none';
               codeWrapEl.style.display = (outputType === 'pseudocode') ? 'block' : 'none';
 
               if (resultObj.type === 'const') {
                 const constText = resultObj.value;
                 renderExpressionText(constText);
                 if (outputType === 'diagram') {
-                  // draw a simple constant output
                   const container = document.getElementById('diagram-container');
                   container.innerHTML = `<svg viewBox="0 0 300 80" width="100%" height="80" xmlns="http://www.w3.org/2000/svg" style="max-width: 760px; border:1px solid rgba(148,163,184,.35); border-radius: 8px; background: rgba(255,255,255,.04)">
                     <text x="20" y="45" font-size="16" fill="#e5e7eb" font-family="monospace">F = ${constText}</text>
@@ -472,6 +462,7 @@
               }
             }
 
+            // UI bindings
             document.getElementById('var-count').addEventListener('change', e => {
               numVars = parseInt(e.target.value, 10);
               generateMap();
@@ -486,6 +477,7 @@
               solve();
             });
 
+            // init
             generateMap();
             solve();
           })();
