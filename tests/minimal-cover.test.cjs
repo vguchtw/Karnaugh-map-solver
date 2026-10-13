@@ -88,3 +88,27 @@ test('four-variable selected covers match an independent exact-cover oracle', ()
     assert.deepEqual(cost(chosen), oracle, `mask=${mask}`);
   }
 });
+
+
+test('structured and deterministic six-variable maps preserve SOP/POS equivalence', () => {
+  const all = Array.from({ length: 64 }, (_, i) => i);
+  const samples = [
+    [], all, [29], all.filter(i => i !== 29),
+    all.filter(i => i % 2 === 0),
+    all.filter(i => i % 2 === 1),
+    all.filter(i => i < 32),
+    all.filter(i => i.toString(2).replace(/0/g, '').length % 2 === 0),
+  ];
+  let seed = 0x05c4ea17;
+  const next = () => { seed ^= seed << 13; seed ^= seed >>> 17; seed ^= seed << 5; return seed >>> 0; };
+  for (let k = 0; k < 48; k++) {
+    const threshold = k % 3 + 2;
+    samples.push(all.filter(() => next() % 7 < threshold));
+  }
+  for (const ones of samples) {
+    const { sop, pos } = validate(ones, 6);
+    const again = validate(ones, 6);
+    assert.deepEqual([...again.sop.terms], [...sop.terms]);
+    assert.deepEqual([...(again.pos.terms || [])], [...(pos.terms || [])]);
+  }
+});
