@@ -250,24 +250,71 @@
               return primes;
             }
             function selectPrimeImplicants(primes, minterms) {
-              const chart = {};
-              minterms.forEach(m => chart[m] = primes.reduce((arr,p,i) => p.minterms.includes(m) ? arr.concat(i) : arr, []));
-              const essential = new Set(Object.values(chart).filter(c => c.length === 1).map(c => c[0]));
-              let covered = new Set(); essential.forEach(i => primes[i].minterms.forEach(m => covered.add(m)));
-              let selected = [...essential]; let rem = minterms.filter(m => !covered.has(m));
-              while (rem.length) {
-                let best = -1, bestCount = 0;
-                primes.forEach((p,i) => {
-                  if (selected.includes(i)) return;
-                  const count = p.minterms.filter(m => rem.includes(m)).length;
-                  if (count > bestCount) { bestCount = count; best = i; }
-                });
-                if (best < 0) break;
-                selected.push(best);
-                primes[best].minterms.forEach(m => covered.add(m));
-                rem = minterms.filter(m => !covered.has(m));
+              if (!minterms.length) return [];
+
+              // Minimize the number of product terms first, then total literals.
+              // Greedily taking the widest available implicant is not exact.
+              // BigInt masks support the entire six-variable (64-cell) map.
+              const position = new Map(minterms.map((m, i) => [m, i]));
+              const masks = primes.map(p => p.minterms.reduce((mask, m) => {
+                const index = position.get(m);
+                return index === undefined ? mask : mask | (1n << BigInt(index));
+              }, 0n));
+              const literalCounts = primes.map(p => p.term.length - [...p.term].filter(c => c === '-').length);
+              const choices = minterms.map((_, index) => primes.reduce((found, _p, i) =>
+                masks[i] & (1n << BigInt(index)) ? found.concat(i) : found, []));
+              if (choices.some(list => list.length === 0)) throw new Error('No implicant covers a required minterm');
+
+              // Prime implicants uniquely covering a minterm are mandatory.
+              const essential = [...new Set(choices.filter(list => list.length === 1).map(list => list[0]))].sort((a, b) => a - b);
+              let uncovered = (1n << BigInt(minterms.length)) - 1n;
+              essential.forEach(i => { uncovered &= ~masks[i]; });
+              const memo = new Map();
+              // Use numeric index order for reproducible ties; localeCompare
+              // can produce different choices across browser environments.
+              const better = (a, b) => {
+                if (!b) return true;
+                if (a.length !== b.length) return a.length < b.length;
+                if (a.literals !== b.literals) return a.literals < b.literals;
+                for (let i = 0; i < a.indices.length; i++) {
+                  if (a.indices[i] !== b.indices[i]) return a.indices[i] < b.indices[i];
+                }
+                return false;
+              };
+
+              function solve(mask) {
+                if (!mask) return { indices: [], length: 0, literals: 0 };
+                if (memo.has(mask)) return memo.get(mask);
+
+                // Choose the most constrained uncovered minterm to keep the
+                // exact search small and avoid enumerating arbitrary subsets.
+                let candidates = null;
+                for (let bit = 0; bit < minterms.length; bit++) {
+                  if (!(mask & (1n << BigInt(bit)))) continue;
+                  const options = choices[bit].filter(i => !(essential.includes(i)));
+                  if (!candidates || options.length < candidates.length) candidates = options;
+                  if (candidates.length <= 1) break;
+                }
+                let best = null;
+                for (const i of candidates) {
+                  const rest = solve(mask & ~masks[i]);
+                  if (!rest) continue;
+                  const indices = [...rest.indices, i].sort((a, b) => a - b);
+                  const candidate = {
+                    indices,
+                    length: rest.length + 1,
+                    literals: rest.literals + literalCounts[i]
+                  };
+                  if (better(candidate, best)) best = candidate;
+                }
+                memo.set(mask, best);
+                return best;
               }
-              return selected.map(i => primes[i]);
+
+              const remaining = solve(uncovered);
+              if (!remaining) throw new Error('Cannot cover all required minterms');
+              const indices = [...essential, ...remaining.indices].sort((a, b) => a - b);
+              return indices.map(i => primes[i]);
             }
             function termToExpr(term) {
               const vars = ['A','B','C','D','E','F'];
