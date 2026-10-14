@@ -114,6 +114,7 @@
             border: 1px solid #333; font-size: 18px; user-select: none; cursor: pointer;
           }
           .karnaugh-solver td.active { background-color: #aaf; }
+          .karnaugh-solver td:focus-visible { outline: 3px solid var(--accent); outline-offset: -3px; }
           .karnaugh-solver .result-area { text-align: center; font-weight: bold; margin-top: 20px; }
           .karnaugh-solver .mobile-fallback {
             display: none; padding: 20px; background: #fee; text-align: center; font-size: 16px; border: 1px solid #f00;
@@ -132,7 +133,7 @@
         </style>
 
         <div class="instructions">
-          Tap a cell to toggle between 0 and 1; the simplified expression updates automatically.
+          Click a cell, or focus it with Tab and press Space or Enter, to toggle between 0 and 1. The simplified expression updates automatically.
         </div>
 
         <div class="settings">
@@ -205,11 +206,22 @@
                 for (let c = 0; c < cols; c++) {
                   const td = document.createElement('td');
                   td.textContent = '0';
-                  td.addEventListener('click', () => {
+                  td.tabIndex = 0;
+                  td.setAttribute('role', 'checkbox');
+                  td.setAttribute('aria-label', 'Minterm ' + parseInt(rowCodes[r] + colCodes[c], 2));
+                  td.setAttribute('aria-checked', 'false');
+                  function toggleCell() {
                     kmap[r][c] ^= 1;
                     td.textContent = kmap[r][c];
+                    td.setAttribute('aria-checked', String(kmap[r][c] === 1));
                     td.classList.toggle('active', kmap[r][c] === 1);
                     solve();
+                  }
+                  td.addEventListener('click', toggleCell);
+                  td.addEventListener('keydown', event => {
+                    if (event.key !== ' ' && event.key !== 'Enter') return;
+                    event.preventDefault();
+                    toggleCell();
                   });
                   tr.appendChild(td);
                 }

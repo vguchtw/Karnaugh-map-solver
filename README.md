@@ -4,6 +4,8 @@ Karnaugh map solver in HTML and Javascript
 
 ## Exact Boolean minimization
 
+The standalone map's cells are keyboard accessible: use Tab to focus a minterm and Space or Enter to toggle it. Each cell exposes its minterm number and on/off state to assistive technologies; keyboard focus has a visible outline. See [keyboard regression evidence](docs/2026-10-14-keyboard-cell-accessibility.md).
+
 The standalone `solver.html` supports 2–6 variables and both sum-of-products
 (SOP) and product-of-sums (POS). After Quine–McCluskey prime generation, its
 cover selector picks a **globally minimal number of implicants**, breaking ties
