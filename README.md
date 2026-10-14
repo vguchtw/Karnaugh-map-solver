@@ -6,6 +6,14 @@ Karnaugh map solver in HTML and Javascript
 
 The standalone map's cells are keyboard accessible: use Tab to focus a minterm and Space or Enter to toggle it. Each cell exposes its minterm number and on/off state to assistive technologies; keyboard focus has a visible outline. See [keyboard regression evidence](docs/2026-10-14-keyboard-cell-accessibility.md).
 
+The solver also works on narrow phone screens: tap minterms, change the 2–6 variable settings, and swipe sideways **inside the map** when the 8-column layout is wider than the viewport. The entire page does not scroll horizontally. See the [responsive mobile regression evidence](docs/2026-10-14-responsive-mobile-solver.md). A local real-Chrome check is available when Chrome and Puppeteer are already installed:
+
+```bash
+CHROME_PATH=/path/to/chrome PUPPETEER_MODULE=/path/to/puppeteer node tests/mobile-browser.acceptance.cjs
+```
+
+This optional browser test uses disposable Chrome profiles, local `solver.html`, and does not install packages.
+
 The standalone `solver.html` supports 2–6 variables and both sum-of-products
 (SOP) and product-of-sums (POS). After Quine–McCluskey prime generation, its
 cover selector picks a **globally minimal number of implicants**, breaking ties
