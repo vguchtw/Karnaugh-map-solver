@@ -98,7 +98,7 @@
     </header>
 
     <section class="hero card">
-      <p>Click cells to toggle 0/1. Use the selector to choose the number of variables (2–6). The simplified expression updates instantly.</p>
+      <p>Tap or click cells to toggle 0/1. Choose 2–6 variables; on narrow screens, swipe sideways within the map to see all columns. The expression updates instantly.</p>
     </section>
 
     <section class="card" aria-label="Karnaugh Map Solver">
@@ -116,12 +116,18 @@
           .karnaugh-solver td.active { background-color: #aaf; }
           .karnaugh-solver td:focus-visible { outline: 3px solid var(--accent); outline-offset: -3px; }
           .karnaugh-solver .result-area { text-align: center; font-weight: bold; margin-top: 20px; }
-          .karnaugh-solver .mobile-fallback {
-            display: none; padding: 20px; background: #fee; text-align: center; font-size: 16px; border: 1px solid #f00;
+          .karnaugh-solver #kmap-container {
+            max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain;
+            padding-bottom: 4px;
           }
           @media (max-width: 767px) {
-            .karnaugh-solver > *:not(.mobile-fallback) { display: none; }
-            .karnaugh-solver .mobile-fallback { display: block; }
+            .wrap { padding: 12px; }
+            .card { padding: 12px; }
+            .karnaugh-solver { margin: 8px 0; }
+            .karnaugh-solver .instructions { font-size: 14px; margin-bottom: 12px; }
+            .karnaugh-solver .settings { margin-bottom: 12px; }
+            .karnaugh-solver .settings .row { justify-content: flex-start; }
+            .karnaugh-solver td { min-width: 36px; height: 44px; }
           }
           .karnaugh-solver .settings .row { display:flex; gap: 10px; justify-content:center; flex-wrap: wrap; align-items:center; }
           .karnaugh-solver .settings label { color: var(--muted); font-size: 14px; margin-right: 6px; }
@@ -133,7 +139,7 @@
         </style>
 
         <div class="instructions">
-          Click a cell, or focus it with Tab and press Space or Enter, to toggle between 0 and 1. The simplified expression updates automatically.
+          Tap or click a cell, or focus it with Tab and press Space or Enter, to toggle between 0 and 1. Swipe sideways within the map for more columns on narrow screens.
         </div>
 
         <div class="settings">
@@ -172,10 +178,6 @@
           <div class="result-area" id="result">Simplified expression will appear here.</div>
           <div id="diagram-container"></div>
           <div id="code-container"><pre id="code-output"></pre></div>
-        </div>
-
-        <div class="mobile-fallback">
-          This Karnaugh Map Solver requires a screen at least 768px wide. Please switch to a larger device or rotate your screen.
         </div>
 
         <script>
