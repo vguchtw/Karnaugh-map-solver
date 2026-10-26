@@ -6,6 +6,8 @@ Karnaugh map solver in HTML and Javascript
 
 The standalone map's cells are keyboard accessible: use Tab to focus a minterm and Space or Enter to toggle it. Each cell exposes its minterm number and on/off state to assistive technologies; keyboard focus has a visible outline. See [keyboard regression evidence](docs/2026-10-14-keyboard-cell-accessibility.md).
 
+Gray-code row and column headers show the binary coordinates of each minterm. The upper-left header names the row and column variable groups (for example, `AB / CD` for four variables); only data cells toggle. The header order follows Gray code, not ordinary binary order.
+
 The solver also works on narrow phone screens: tap minterms, change the 2–6 variable settings, and swipe sideways **inside the map** when the 8-column layout is wider than the viewport. The entire page does not scroll horizontally. See the [responsive mobile regression evidence](docs/2026-10-14-responsive-mobile-solver.md). A local real-Chrome check is available when Chrome and Puppeteer are already installed:
 
 ```bash

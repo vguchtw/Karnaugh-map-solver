@@ -113,6 +113,13 @@
             width: 40px; height: 40px; text-align: center; vertical-align: middle;
             border: 1px solid #333; font-size: 18px; user-select: none; cursor: pointer;
           }
+          .karnaugh-solver th {
+            min-width: 40px; height: 40px; padding: 4px;
+            text-align: center; border: 1px solid #64748b;
+            font-size: 12px; font-weight: 600;
+            background: rgba(148, 163, 184, .15);
+          }
+          .karnaugh-solver th:first-child { min-width: 64px; }
           .karnaugh-solver td.active { background-color: #aaf; }
           .karnaugh-solver td:focus-visible { outline: 3px solid var(--accent); outline-offset: -3px; }
           .karnaugh-solver .result-area { text-align: center; font-weight: bold; margin-top: 20px; }
@@ -203,8 +210,26 @@
 
               kmap = Array.from({ length: rows }, () => Array(cols).fill(0));
               const table = document.createElement('table');
+              const rowVariables = 'ABCDEF'.slice(0, Math.floor(numVars / 2));
+              const colVariables = 'ABCDEF'.slice(Math.floor(numVars / 2), numVars);
+              table.setAttribute('aria-label', 'Karnaugh map for ' + numVars + ' variables');
+              const headerRow = document.createElement('tr');
+              const axisHeader = document.createElement('th');
+              axisHeader.textContent = rowVariables + ' / ' + colVariables;
+              headerRow.appendChild(axisHeader);
+              for (const code of colCodes) {
+                const heading = document.createElement('th');
+                heading.textContent = code;
+                heading.setAttribute('scope', 'col');
+                headerRow.appendChild(heading);
+              }
+              table.appendChild(headerRow);
               for (let r = 0; r < rows; r++) {
                 const tr = document.createElement('tr');
+                const rowHeading = document.createElement('th');
+                rowHeading.textContent = rowCodes[r];
+                rowHeading.setAttribute('scope', 'row');
+                tr.appendChild(rowHeading);
                 for (let c = 0; c < cols; c++) {
                   const td = document.createElement('td');
                   td.textContent = '0';
