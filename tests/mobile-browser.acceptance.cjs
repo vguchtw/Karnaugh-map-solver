@@ -49,6 +49,8 @@ async function run() {
           visibleResult: visible('#result'),
           fallback: visible('.mobile-fallback'),
           cells: document.querySelectorAll('#kmap-container td').length,
+          headers: [...scroller.querySelectorAll('tr:first-child th')].map(th => th.textContent),
+          rowHeaders: [...scroller.querySelectorAll('tr')].slice(1).map(tr => tr.querySelector('th').textContent),
           rootScrollWidth: document.documentElement.scrollWidth,
           viewportWidth: window.innerWidth,
           scrollerWidth: scroller.clientWidth,
@@ -60,6 +62,10 @@ async function run() {
       assert.equal(ui.visibleResult, true, width + 'px: result must be visible');
       assert.notEqual(ui.fallback, true, width + 'px: fallback must not replace controls');
       assert.equal(ui.cells, 16, width + 'px: four-variable map');
+      assert.deepEqual(ui.headers, ['AB / CD', '00', '01', '11', '10'],
+        width + 'px: four-variable Gray-code column headers');
+      assert.deepEqual(ui.rowHeaders, ['00', '01', '11', '10'],
+        width + 'px: four-variable Gray-code row headers');
       assert.ok(ui.rootScrollWidth <= ui.viewportWidth + 1,
         width + 'px: entire document must not scroll horizontally: ' + JSON.stringify(ui));
 
@@ -95,6 +101,8 @@ async function run() {
         const table = scroller.querySelector('table');
         return {
           cells: table.querySelectorAll('td').length,
+          headers: [...table.querySelectorAll('tr:first-child th')].map(th => th.textContent),
+          rowHeaders: [...table.querySelectorAll('tr')].slice(1).map(tr => tr.querySelector('th').textContent),
           scrollerWidth: scroller.clientWidth,
           tableWidth: table.scrollWidth,
           rootScrollWidth: document.documentElement.scrollWidth,
@@ -103,6 +111,10 @@ async function run() {
         };
       });
       assert.equal(ui.cells, 64, width + 'px: six-variable map must display');
+      assert.deepEqual(ui.headers, ['ABC / DEF', '000', '001', '011', '010', '110', '111', '101', '100'],
+        width + 'px: six-variable Gray-code column headers');
+      assert.deepEqual(ui.rowHeaders, ['000', '001', '011', '010', '110', '111', '101', '100'],
+        width + 'px: six-variable Gray-code row headers');
       assert.ok(ui.rootScrollWidth <= ui.viewportWidth + 1,
         width + 'px: six-variable map must not overflow the whole page');
       if (ui.tableWidth > ui.scrollerWidth) {

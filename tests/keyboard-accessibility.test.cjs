@@ -66,9 +66,10 @@ function boot() {
     createElement(tag) { return new Element(tag); },
   };
   vm.runInNewContext(scripts[0][1], {document}, {filename: 'solver.html'});
-  const cells = () => elements.get('kmap-container').children[0].children
-    .flatMap(row => row.children);
-  return {cells, elements};
+  const table = () => elements.get('kmap-container').children[0];
+  const cells = () => table().children.flatMap(row => row.children)
+    .filter(cell => cell.tagName === 'td');
+  return {cells, table, elements};
 }
 
 test('all four-variable cells are keyboard focusable, named and expose state', () => {
@@ -125,4 +126,53 @@ test('changing to six variables creates 64 accessible interactive cells', () => 
 
 test('keyboard focus is visibly highlighted in CSS', () => {
   assert.match(html, /\.karnaugh-solver td:focus-visible\s*\{/);
+});
+
+test('Gray-code row and column headers explain every map coordinate for 2–6 variables', () => {
+  for (const vars of [2, 3, 4, 5, 6]) {
+    const {table, cells, elements} = boot();
+    if (vars !== 4) {
+      const select = elements.get('var-count');
+      select.value = String(vars);
+      select.emit('change');
+    }
+    const rowBits = Math.floor(vars / 2);
+    const colBits = Math.ceil(vars / 2);
+    const gray = bits => Array.from({length: 1 << bits}, (_, i) =>
+      (i ^ (i >> 1)).toString(2).padStart(bits, '0'));
+    const rows = gray(rowBits);
+    const cols = gray(colBits);
+    assert.equal(table().children.length, rows.length + 1, vars + ' variables: header row');
+    const headings = table().children[0].children;
+    assert.equal(headings.length, cols.length + 1);
+    assert.equal(headings[0].textContent, 'ABCDEF'.slice(0, rowBits) + ' / ' +
+      'ABCDEF'.slice(rowBits, vars));
+    for (let c = 0; c < cols.length; c++) {
+      assert.equal(headings[c + 1].tagName, 'th');
+      assert.equal(headings[c + 1].getAttribute('scope'), 'col');
+      assert.equal(headings[c + 1].textContent, cols[c]);
+    }
+    for (let r = 0; r < rows.length; r++) {
+      const row = table().children[r + 1].children;
+      assert.equal(row[0].tagName, 'th');
+      assert.equal(row[0].getAttribute('scope'), 'row');
+      assert.equal(row[0].textContent, rows[r]);
+      for (let c = 0; c < cols.length; c++) {
+        assert.equal(row[c + 1].getAttribute('aria-label'),
+          'Minterm ' + parseInt(rows[r] + cols[c], 2));
+      }
+    }
+    assert.equal(cells().length, 1 << vars);
+  }
+});
+
+test('map headers remain noninteractive while minterm cells still toggle', () => {
+  const {table, cells, elements} = boot();
+  const header = table().children[0].children[1];
+  assert.equal(header.tagName, 'th');
+  assert.equal(header.tabIndex, -1);
+  assert.equal(header.listeners.size, 0);
+  cells()[5].emit('click');
+  assert.equal(cells()[5].getAttribute('aria-checked'), 'true');
+  assert.doesNotMatch(elements.get('result').textContent, /: 0$/);
 });
