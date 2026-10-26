@@ -53,6 +53,10 @@ async function main() {
 
     await page.focus('#output-type');
     await page.keyboard.press('Tab');
+    assert.equal(await page.evaluate(() =>
+      document.activeElement === document.querySelector('#reset-map')), true,
+      'Tab must reach the native Clear map button');
+    await page.keyboard.press('Tab');
     const firstFocused = await page.evaluate(() =>
       document.activeElement === document.querySelector('#kmap-container td'));
     assert.equal(firstFocused, true, 'Tab must focus the first map cell');
@@ -79,17 +83,22 @@ async function main() {
 
     await page.select('#var-count', '6');
     await assertMap(64);
-    await page.focus('#output-type');
+    await page.focus('#reset-map');
     await page.keyboard.press('Tab');
     assert.equal(await page.evaluate(() =>
       document.activeElement === document.querySelector('#kmap-container td')), true);
     await page.keyboard.press('Enter');
     assert.equal((await describe())[0].checked, 'true');
+    await page.focus('#reset-map');
+    await page.keyboard.press('Enter');
+    await assertMap(64);
+    assert.equal(await page.$eval('#var-count', el => el.value), '6',
+      'Clear map must preserve variable count');
     assert.deepEqual(pageErrors, [], 'no uncaught browser errors');
     console.log('KARNAUGH_REAL_CHROME_KEYBOARD_PASS ' + JSON.stringify({
       initialMinterms: 16, expandedMinterms: 64,
       tabFocus: true, visibleFocus: true, spaceEnter: true,
-      uniqueNames: true, mouseCompatible: true, pageErrors,
+      uniqueNames: true, mouseCompatible: true, keyboardClear: true, pageErrors,
     }));
   } finally {
     if (browser) await browser.close();
