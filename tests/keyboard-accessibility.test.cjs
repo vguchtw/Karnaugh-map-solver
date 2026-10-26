@@ -53,7 +53,7 @@ class Element {
 
 function boot() {
   const ids = ['var-count', 'method', 'output-type', 'kmap-container',
-    'result', 'diagram-container', 'code-container', 'code-output'];
+    'result', 'diagram-container', 'code-container', 'code-output', 'reset-map'];
   const elements = new Map(ids.map(id => [id, new Element('div')]));
   elements.get('var-count').value = '4';
   elements.get('method').value = 'SOP';
@@ -175,4 +175,41 @@ test('map headers remain noninteractive while minterm cells still toggle', () =>
   cells()[5].emit('click');
   assert.equal(cells()[5].getAttribute('aria-checked'), 'true');
   assert.doesNotMatch(elements.get('result').textContent, /: 0$/);
+});
+
+test('Clear map control is a native non-submitting button', () => {
+  assert.match(html, /<button\b[^>]*id="reset-map"[^>]*type="button"[^>]*>Clear map<\/button>/);
+});
+
+test('Clear map resets selected cells and output without changing settings', () => {
+  for (const vars of [2, 4, 6]) {
+    const {cells, elements} = boot();
+    const select = elements.get('var-count');
+    select.value = String(vars);
+    select.emit('change');
+    const method = elements.get('method');
+    method.value = 'POS';
+    method.emit('change');
+    const output = elements.get('output-type');
+    output.value = 'pseudocode';
+    output.emit('change');
+    const first = cells()[0], last = cells()[cells().length - 1];
+    first.emit('click');
+    last.emit('keydown', {key: 'Enter'});
+    assert.equal(first.getAttribute('aria-checked'), 'true');
+    assert.equal(last.getAttribute('aria-checked'), 'true');
+    elements.get('reset-map').emit('click');
+    assert.equal(cells().length, 1 << vars);
+    for (const cell of cells()) {
+      assert.equal(cell.textContent, '0');
+      assert.equal(cell.getAttribute('aria-checked'), 'false');
+      assert.equal(cell.classList.contains('active'), false);
+    }
+    assert.equal(select.value, String(vars));
+    assert.equal(method.value, 'POS');
+    assert.equal(output.value, 'pseudocode');
+    assert.match(elements.get('code-output').textContent, /return False/);
+    elements.get('reset-map').emit('click'); // idempotent
+    assert.ok(cells().every(cell => cell.getAttribute('aria-checked') === 'false'));
+  }
 });
